@@ -4,29 +4,52 @@ An iPhone notebook for restaurants and cafés you are collecting — starting in
 
 Keep separate lists (cafés, high end, regular, or any list you add), check off places you have visited, pin them on a map, and attach a short note plus a photo from each table.
 
-## On your iPhone
+## Test on your iPhone (no Apple Developer Program)
 
-**Expo Go is not a regular app.** It is a playground: you open Expo Go, scan a QR code from a computer running `npx expo start`, and Bordbok runs *inside* Expo Go. It does not get its own home-screen icon, it needs that development session (or a matching published update), and Expo does not treat it as the way to ship something you use every day.
+Use **Expo Go**. It is free. You do not pay Apple. Bordbok runs *inside* Expo Go while your computer is serving the project.
 
-For everyday use, install **Bordbok itself** with [EAS Build](https://docs.expo.dev/build/setup/) and **TestFlight**. Then it behaves like any other iPhone app: own icon, works offline, no Expo Go, no laptop.
-
-You need:
-
-1. An [Apple Developer Program](https://developer.apple.com/programs/) membership (paid, required for TestFlight).
-2. A free [Expo](https://expo.dev) account.
-3. These commands from the project folder (once):
+1. On the iPhone, install [Expo Go](https://apps.apple.com/app/expo-go/id982107779) from the App Store.
+2. Create a free [Expo](https://expo.dev/signup) account.
+3. In Expo Go, tap the avatar and **log in** with that account.
+4. On a computer (Mac, Windows, or Linux), install [Node.js](https://nodejs.org/) 22 if you do not have it, then:
 
 ```bash
+git clone https://github.com/svaalbu/places-to-visit-app.git
+cd places-to-visit-app
+git checkout cursor/oslo-restaurant-tracker-0e8a
 npm install
+npx expo login
+npx expo start
+```
+
+Log in to the **same** Expo account in the terminal (SDK 57 Expo Go requires this).
+
+5. Put the phone and the computer on the **same Wi‑Fi**.
+6. On the iPhone, open the **Camera** app, scan the QR code in the terminal, and open it in Expo Go.
+7. Leave the terminal running. If you stop it, Bordbok in Expo Go will stop loading.
+
+If the QR code never connects (guest Wi‑Fi, VPN, or phone on cellular), use a tunnel instead:
+
+```bash
+npx expo start --tunnel
+```
+
+The first tunnel start may ask to install `@expo/ngrok`. Allow that, then scan the new QR code.
+
+**Limits of this path:** the home-screen icon is Expo Go, not Bordbok. The computer must keep running (or you use a tunnel to a machine that stays on). Photos, notes, and check-offs are stored on that phone. This is the right way to try the app before paying Apple.
+
+## Install as a normal app later (Apple Developer Program)
+
+For everyday use with Bordbok’s own icon and no laptop, install it with [EAS Build](https://docs.expo.dev/build/setup/) and **TestFlight**. That needs a paid [Apple Developer Program](https://developer.apple.com/programs/) membership.
+
+```bash
 npx eas-cli@latest login
 npx eas-cli@latest init
 npx eas-cli@latest build --platform ios --profile production
 npx eas-cli@latest submit --platform ios
 ```
 
-EAS walks you through Apple login, certificates, and App Store Connect. After the build is submitted, install **TestFlight** from the App Store, accept Bordbok, and add it to your home screen.
-
-A `preview` profile in `eas.json` can also install a production-like build on your registered iPhone without the public App Store (`--profile preview`). TestFlight is usually simpler for one personal phone.
+Then install **TestFlight** from the App Store and add Bordbok to the home screen.
 
 This repo is Expo / React Native (SDK 57), not a Swift Xcode project.
 
