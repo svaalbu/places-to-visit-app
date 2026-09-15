@@ -4,6 +4,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -14,7 +15,7 @@ import {
 } from 'react-native';
 
 import { confirmAction } from '@/src/lib/confirm';
-
+import { coverPhoto, formatGoogleRating, googleMapsUrl } from '@/src/lib/placeMedia';
 import { pickPlacePhoto } from '@/src/lib/photo';
 import { useBordbok } from '@/src/store';
 import { colors, fonts, layout } from '@/src/theme';
@@ -75,6 +76,9 @@ export default function PlaceDetailScreen() {
         }}
       />
       <ScrollView contentContainerStyle={styles.content}>
+        {coverPhoto(place) ? (
+          <Image source={{ uri: coverPhoto(place) }} style={styles.hero} contentFit="cover" />
+        ) : null}
         <Pressable
           onPress={() => {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -95,15 +99,19 @@ export default function PlaceDetailScreen() {
 
         <Text style={styles.meta}>
           {list?.name} · {place.neighborhood}
+          {place.googleRating != null ? ` · Google ${formatGoogleRating(place)}` : ''}
         </Text>
         <Text style={styles.address}>{place.address}, Oslo</Text>
+        <Pressable onPress={() => void Linking.openURL(googleMapsUrl(place))}>
+          <Text style={styles.mapsLink}>Open in Google Maps</Text>
+        </Pressable>
 
-        <Text style={styles.section}>Photo from the table</Text>
+        <Text style={styles.section}>Your photo from the table</Text>
         {place.photoUri ? (
           <Image source={{ uri: place.photoUri }} style={styles.photo} contentFit="cover" />
         ) : (
           <View style={styles.photoEmpty}>
-            <Text style={styles.photoHint}>No photo yet</Text>
+            <Text style={styles.photoHint}>Add your own shot — the cover photo stays from the venue</Text>
           </View>
         )}
         <Pressable onPress={() => void addPhoto()} style={styles.secondary}>
@@ -132,6 +140,13 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 48,
+  },
+  hero: {
+    width: '100%',
+    height: 210,
+    borderRadius: 20,
+    marginBottom: 16,
+    backgroundColor: colors.paperDeep,
   },
   visit: {
     borderRadius: 20,
@@ -169,6 +184,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.ink,
     marginTop: 6,
+  },
+  mapsLink: {
+    marginTop: 8,
+    color: colors.forest,
+    fontWeight: '700',
+    fontFamily: fonts.sans,
   },
   section: {
     fontFamily: fonts.sans,

@@ -2,11 +2,13 @@ import { createElement, useEffect, useRef, useState, type CSSProperties } from '
 import { StyleSheet, View } from 'react-native';
 import type { LayerGroup, Map as LeafletMap } from 'leaflet';
 
+import { coverPhoto } from '@/src/lib/placeMedia';
 import { OSLO_REGION, type Place } from '@/src/types';
 
 type Props = {
   places: Place[];
   accentFor: (place: Place) => string;
+  selectedId?: string;
   onSelect: (placeId: string) => void;
 };
 
@@ -20,7 +22,7 @@ function ensureLeafletCss() {
   document.head.appendChild(link);
 }
 
-export function PlaceMap({ places, accentFor, onSelect }: Props) {
+export function PlaceMap({ places, accentFor, selectedId, onSelect }: Props) {
   const host = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
@@ -28,11 +30,13 @@ export function PlaceMap({ places, accentFor, onSelect }: Props) {
   const placesRef = useRef(places);
   const accentRef = useRef(accentFor);
   const selectRef = useRef(onSelect);
+  const selectedRef = useRef(selectedId);
   const [ready, setReady] = useState(false);
 
   placesRef.current = places;
   accentRef.current = accentFor;
   selectRef.current = onSelect;
+  selectedRef.current = selectedId;
 
   useEffect(() => {
     let cancelled = false;
@@ -51,18 +55,42 @@ export function PlaceMap({ places, accentFor, onSelect }: Props) {
         attributionControl: true,
       }).setView([OSLO_REGION.latitude, OSLO_REGION.longitude], 13);
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19,
-      }).addTo(map);
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+          attribution: 'Tiles © Esri',
+          maxZoom: 19,
+        },
+      ).addTo(map);
+      L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Reference_Overlay/MapServer/tile/{z}/{y}/{x}',
+        {
+          attribution: '',
+          maxZoom: 19,
+        },
+      ).addTo(map);
 
       mapRef.current = map;
       layerRef.current = L.layerGroup().addTo(map);
-      paint(L, layerRef.current, placesRef.current, accentRef.current, selectRef.current);
+      paint(
+        L,
+        layerRef.current,
+        placesRef.current,
+        accentRef.current,
+        selectRef.current,
+        selectedRef.current,
+      );
 
       resize = () => {
         map.invalidateSize();
-        paint(L, layerRef.current!, placesRef.current, accentRef.current, selectRef.current);
+        paint(
+          L,
+          layerRef.current!,
+          placesRef.current,
+          accentRef.current,
+          selectRef.current,
+          selectedRef.current,
+        );
       };
       window.setTimeout(resize, 50);
       window.setTimeout(resize, 300);
@@ -90,9 +118,9 @@ export function PlaceMap({ places, accentFor, onSelect }: Props) {
     if (!ready || !L || !layer) {
       return;
     }
-    paint(L, layer, places, accentRef.current, selectRef.current);
+    paint(L, layer, places, accentRef.current, selectRef.current, selectedId);
     mapRef.current?.invalidateSize();
-  }, [places, ready]);
+  }, [places, ready, selectedId]);
 
   return (
     <View style={styles.wrap}>
@@ -107,20 +135,26 @@ function paint(
   places: Place[],
   accentFor: (place: Place) => string,
   onSelect: (placeId: string) => void,
+  selectedId?: string,
 ) {
   layer.clearLayers();
   places.forEach((place) => {
     const accent = accentFor(place);
-    const marker = L.circleMarker([place.latitude, place.longitude], {
-      radius: place.visited ? 11 : 9,
-      color: accent,
-      weight: 3,
-      fillColor: place.visited ? accent : '#FFFBF5',
-      fillOpacity: 1,
+    const photo = coverPhoto(place);
+    const selected = place.id === selectedId;
+    const size = selected ? 52 : 44;
+    const img = photo
+      ? `<img src="${photo.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" alt="" />`
+      : `<span style="background:${accent};display:block;width:100%;height:100%"></span>`;
+    const icon = L.divIcon({
+      className: 'bordbok-pin',
+      html: `<div class="bordbok-pin-inner${place.visited ? ' visited' : ''}${selected ? ' selected' : ''}" style="border-color:${accent};width:${size}px;height:${size}px">${img}</div>`,
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
     });
-    marker.bindTooltip(`${place.name} · ${place.visited ? 'visited' : 'to try'}`, {
-      direction: 'top',
-    });
+    const marker = L.marker([place.latitude, place.longitude], { icon });
+    const rating = place.googleRating ? ` · ${place.googleRating.toFixed(1)}` : '';
+    marker.bindTooltip(`${place.name}${rating}`, { direction: 'top' });
     marker.on('click', () => onSelect(place.id));
     marker.addTo(layer);
   });
@@ -138,6 +172,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 420,
     position: 'relative',
-    backgroundColor: '#E7DDD0',
+    backgroundColor: '#1A1F18',
   },
 });

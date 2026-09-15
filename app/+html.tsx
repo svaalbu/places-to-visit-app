@@ -29,7 +29,27 @@ body {
 .leaflet-container {
   width: 100%;
   height: 100%;
-  background: #E7DDD0;
+  background: #1A1F18;
   font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.bordbok-pin {
+  background: transparent;
+  border: 0;
+}
+.bordbok-pin-inner {
+  border-radius: 14px;
+  border: 2.5px solid #fff;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+  background: #1c1814;
+}
+.bordbok-pin-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bordbok-pin-inner.selected {
+  box-shadow: 0 0 0 3px rgba(243, 237, 227, 0.9);
 }
 `;

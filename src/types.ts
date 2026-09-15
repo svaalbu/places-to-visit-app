@@ -16,6 +16,9 @@ export type Place = {
   visited: boolean;
   note: string;
   photoUri?: string;
+  coverPhotoUrl?: string;
+  googleRating?: number;
+  googleRatingsCount?: number;
   visitedAt?: string;
 };
 
@@ -24,6 +27,9 @@ export type VisitFilter = 'all' | 'visited' | 'to-try';
 export const OSLO_REGION = {
   latitude: 59.9139,
   longitude: 10.7522,
-  latitudeDelta: 0.08,
-  longitudeDelta: 0.08,
+  latitudeDelta: 0.07,
+  longitudeDelta: 0.07,
 };
+
+export const CAFE_MIN_RATING = 4.0;
+export const RESTAURANT_MIN_RATING = 4.5;

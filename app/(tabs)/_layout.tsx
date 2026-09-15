@@ -20,13 +20,23 @@ export default function TabLayout() {
           fontSize: 12,
           fontWeight: '600',
         },
-        headerStyle: { backgroundColor: colors.paper },
-        headerShadowVisible: false,
-        headerTintColor: colors.ink,
         headerShown: false,
       }}>
       <Tabs.Screen
         name="index"
+        options={{
+          title: 'Map',
+          tabBarIcon: ({ color }) => (
+            <SymbolView
+              name={{ ios: 'map', android: 'map', web: 'map' }}
+              tintColor={color}
+              size={26}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="lists"
         options={{
           title: 'Lists',
           tabBarIcon: ({ color }) => (
@@ -45,19 +55,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => (
             <SymbolView
               name={{ ios: 'fork.knife', android: 'restaurant', web: 'restaurant' }}
-              tintColor={color}
-              size={26}
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="map"
-        options={{
-          title: 'Map',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{ ios: 'map', android: 'map', web: 'map' }}
               tintColor={color}
               size={26}
             />

@@ -37,7 +37,7 @@ export default function PlacesScreen() {
             <Text style={styles.addLabel}>Add</Text>
           </Pressable>
         </View>
-        <Text style={layout.subtitle}>Check off visits. Open a place to add a note or photo.</Text>
+        <Text style={layout.subtitle}>High-rated Oslo only. Check off visits, open a pin for the photo.</Text>
         <View style={styles.chips}>
           <FilterChips
             selected={listFilter}

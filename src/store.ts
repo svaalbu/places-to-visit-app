@@ -79,7 +79,7 @@ export const useBordbok = create<BordbokState>()(
       },
     }),
     {
-      name: 'bordbok-oslo-v1',
+      name: 'bordbok-oslo-v2',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ lists: state.lists, places: state.places }),
     },

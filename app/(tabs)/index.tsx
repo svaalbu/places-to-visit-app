@@ -1,149 +1,151 @@
-import { Link, router } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ListCard } from '@/src/components/ListCard';
-import { confirmAction } from '@/src/lib/confirm';
-import { useBordbok, visitedCount } from '@/src/store';
-import { colors, fonts, layout } from '@/src/theme';
+import { FilterChips } from '@/src/components/FilterChips';
+import { MapPlaceCard } from '@/src/components/MapPlaceCard';
+import { PlaceMap } from '@/src/components/PlaceMap';
+import { useBordbok } from '@/src/store';
+import { colors, fonts } from '@/src/theme';
+import type { Place, VisitFilter } from '@/src/types';
 
-export default function ListsScreen() {
+export default function MapHomeScreen() {
   const lists = useBordbok((state) => state.lists);
   const places = useBordbok((state) => state.places);
-  const restoreOsloStarter = useBordbok((state) => state.restoreOsloStarter);
-  const totals = visitedCount(places);
+  const toggleVisited = useBordbok((state) => state.toggleVisited);
+  const [listFilter, setListFilter] = useState('all');
+  const [visitFilter, setVisitFilter] = useState<VisitFilter>('all');
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+
+  const visible = useMemo(() => {
+    return places.filter((place) => {
+      const listOk = listFilter === 'all' || place.listId === listFilter;
+      const visitOk =
+        visitFilter === 'all' || (visitFilter === 'visited' ? place.visited : !place.visited);
+      return listOk && visitOk;
+    });
+  }, [listFilter, places, visitFilter]);
+
+  const selected = visible.find((place) => place.id === selectedId) ?? visible[0];
+
+  const accentFor = useCallback(
+    (place: Place) => lists.find((list) => list.id === place.listId)?.accent ?? colors.forest,
+    [lists],
+  );
 
   return (
-    <SafeAreaView style={layout.screen} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.kicker}>Oslo</Text>
-        <Text style={layout.title}>Bordbok</Text>
-        <Text style={[layout.subtitle, styles.lede]}>
-          A notebook of restaurants and cafés. Check off the ones you have been to, leave a short
-          note, and keep a photo from the table.
-        </Text>
-
-        <View style={styles.stats}>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{totals.visited}</Text>
-            <Text style={styles.statLabel}>visited</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{Math.max(totals.total - totals.visited, 0)}</Text>
-            <Text style={styles.statLabel}>to try</Text>
-          </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>{lists.length}</Text>
-            <Text style={styles.statLabel}>lists</Text>
-          </View>
+    <View style={styles.root}>
+      <PlaceMap
+        places={visible}
+        selectedId={selected?.id}
+        accentFor={accentFor}
+        onSelect={(id) => {
+          void Haptics.selectionAsync();
+          setSelectedId(id);
+        }}
+      />
+      <SafeAreaView pointerEvents="box-none" style={styles.overlay} edges={['top']}>
+        <View style={styles.top}>
+          <Text style={styles.brand}>Bordbok</Text>
+          <Text style={styles.sub}>Oslo · photo pins on the map</Text>
+          <FilterChips
+            selected={listFilter}
+            onSelect={(key) => {
+              setListFilter(key);
+              setSelectedId(undefined);
+            }}
+            chips={[
+              { key: 'all', label: 'All' },
+              ...lists.map((list) => ({ key: list.id, label: list.name })),
+            ]}
+          />
+          <FilterChips
+            selected={visitFilter}
+            onSelect={(key) => setVisitFilter(key as VisitFilter)}
+            chips={[
+              { key: 'all', label: 'All' },
+              { key: 'to-try', label: 'To try' },
+              { key: 'visited', label: 'Visited' },
+            ]}
+          />
         </View>
-
-        <View style={styles.headerRow}>
-          <Text style={layout.sectionLabel}>Your lists</Text>
-          <Link href="/new-list" asChild>
-            <Pressable>
-              <Text style={styles.link}>New list</Text>
-            </Pressable>
-          </Link>
-        </View>
-
-        <View style={styles.cards}>
-          {lists.map((list) => {
-            const counts = visitedCount(places, list.id);
-            return (
-              <ListCard
-                key={list.id}
-                list={list}
-                visited={counts.visited}
-                total={counts.total}
-                onPress={() => router.push(`/list/${list.id}`)}
-              />
-            );
-          })}
-        </View>
-        <Pressable
-          onPress={() =>
-            confirmAction(
-              'Restore Oslo starter?',
-              'This replaces your lists and places with the included Oslo collection.',
-              restoreOsloStarter,
-            )
-          }>
-          <Text style={styles.restore}>Restore Oslo starter collection</Text>
+      </SafeAreaView>
+      <View style={styles.bottom} pointerEvents="box-none">
+        {selected ? (
+          <MapPlaceCard
+            place={selected}
+            list={lists.find((list) => list.id === selected.listId)}
+            onOpen={() => router.push(`/place/${selected.id}`)}
+            onToggleVisited={() => {
+              void Haptics.selectionAsync();
+              toggleVisited(selected.id);
+            }}
+          />
+        ) : (
+          <Text style={styles.empty}>No places in this filter.</Text>
+        )}
+        <Pressable style={styles.fab} onPress={() => router.push('/new-place')}>
+          <Text style={styles.fabLabel}>Add a place</Text>
         </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    paddingTop: 12,
-  },
-  kicker: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    color: colors.copper,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  lede: {
-    marginTop: 10,
-    maxWidth: 360,
-  },
-  stats: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 22,
-    marginBottom: 28,
-  },
-  stat: {
+  root: {
     flex: 1,
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.line,
-    paddingVertical: 14,
-    alignItems: 'center',
+    backgroundColor: '#1A1F18',
   },
-  statValue: {
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  top: {
+    marginHorizontal: 12,
+    marginTop: 4,
+    padding: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(243, 237, 227, 0.94)',
+    gap: 6,
+  },
+  brand: {
     fontFamily: fonts.serif,
-    fontSize: 26,
+    fontSize: 28,
     color: colors.ink,
   },
-  statLabel: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    color: colors.muted,
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  link: {
-    fontFamily: fonts.sans,
-    color: colors.forest,
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  cards: {
-    gap: 14,
-  },
-  restore: {
-    marginTop: 28,
-    textAlign: 'center',
-    color: colors.muted,
+  sub: {
     fontFamily: fonts.sans,
     fontSize: 13,
-    textDecorationLine: 'underline',
+    color: colors.muted,
+    marginBottom: 4,
+  },
+  bottom: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    gap: 10,
+  },
+  empty: {
+    color: colors.paper,
+    textAlign: 'center',
+    fontFamily: fonts.sans,
+  },
+  fab: {
+    alignSelf: 'flex-end',
+    backgroundColor: colors.forest,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  fabLabel: {
+    color: colors.white,
+    fontFamily: fonts.sans,
+    fontWeight: '700',
   },
 });

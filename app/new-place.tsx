@@ -79,6 +79,7 @@ export default function NewPlaceScreen() {
       visited: false,
       note: note.trim(),
       photoUri,
+      coverPhotoUrl: photoUri,
     });
     router.replace(`/place/${id}`);
   };

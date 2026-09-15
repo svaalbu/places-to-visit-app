@@ -66,13 +66,14 @@ This repo is Expo / React Native (SDK 57), not a Swift Xcode project.
 
 ## Features
 
-- **Lists** — starter collections for Oslo cafés, high-end rooms, and regular tables. Add your own lists.
-- **Visited** — check a place off in the list, on the place screen, or from the map.
-- **Notes & photos** — a short note and one photo per place, stored on the phone.
-- **Oslo map** — filled pins are visited; hollow pins are still to try. Filter by list.
+- **Map first** — the home screen is Oslo on satellite/hybrid tiles, with photo pins.
+- **Google rating floors** — cafés 4.0+, restaurants 4.5+. Cover photos from each venue (and Google Maps links).
+- **Lists** — Cafés, High end, Regular. Add your own lists.
+- **Visited** — check a place off from the map card, the list, or the place screen.
+- **Notes & your photo** — a short note and an optional photo you take at the table.
 - **Add a place** — type it in, or search Oslo via OpenStreetMap Nominatim.
 
-Starter pins are a personal shortlist, not a complete city guide. Coordinates are approximate.
+Starter pins are a personal shortlist of highly rated Oslo rooms, not a complete city guide. Google scores change; treat them as a snapshot.
 
 ## Run locally
 

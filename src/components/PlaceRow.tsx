@@ -30,8 +30,9 @@ export function PlaceRow({ place, accent, onOpen, onToggleVisited }: Props) {
         <Text style={styles.name}>{place.name}</Text>
         <Text style={styles.meta}>
           {place.neighborhood}
+          {place.googleRating != null ? ` · ${place.googleRating.toFixed(1)} Google` : ''}
           {place.note ? ' · note' : ''}
-          {place.photoUri ? ' · photo' : ''}
+          {place.photoUri || place.coverPhotoUrl ? ' · photo' : ''}
         </Text>
       </View>
       <Text style={[styles.status, place.visited && { color: accent }]}>
