@@ -12,6 +12,17 @@ type Props = {
   onSelect: (placeId: string) => void;
 };
 
+const PIN_CSS = `
+.leaflet-div-icon.bordbok-pin { background: transparent !important; border: 0 !important; overflow: visible !important; }
+.bordbok-pin-wrap { position: relative; width: 54px; height: 54px; }
+.bordbok-pin-inner { width: 44px; height: 44px; border-radius: 14px; border: 2.5px solid #fff; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.35); background: #1c1814; box-sizing: border-box; margin: 5px; }
+.bordbok-pin-inner.selected { width: 52px; height: 52px; margin: 1px; }
+.bordbok-pin-inner:not(.visited) img { filter: grayscale(0.75) brightness(0.7); }
+.bordbok-pin-inner.visited { border-color: #0B8A4B !important; border-width: 3px; }
+.bordbok-pin-inner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bordbok-check { position: absolute; right: 0; bottom: 0; z-index: 2; width: 22px; height: 22px; border-radius: 11px; background: #0B8A4B; color: #fff; border: 2px solid #fff; font: 800 13px/18px system-ui, sans-serif; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.35); }
+`;
+
 function ensureLeafletCss() {
   if (typeof document === 'undefined') return;
   if (!document.querySelector('link[data-bordbok-leaflet]')) {
@@ -24,12 +35,7 @@ function ensureLeafletCss() {
   if (!document.querySelector('style[data-bordbok-pins]')) {
     const style = document.createElement('style');
     style.setAttribute('data-bordbok-pins', 'true');
-    style.textContent = `
-      .leaflet-div-icon.bordbok-pin { background: transparent !important; border: 0 !important; }
-      .bordbok-pin-inner { width: 44px; height: 44px; border-radius: 14px; border: 2.5px solid #fff; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.35); background: #1c1814; box-sizing: border-box; }
-      .bordbok-pin-inner.selected { width: 52px; height: 52px; }
-      .bordbok-pin-inner img { width: 100%; height: 100%; max-width: 52px; max-height: 52px; object-fit: cover; display: block; }
-    `;
+    style.textContent = PIN_CSS;
     document.head.appendChild(style);
   }
 }
@@ -158,15 +164,18 @@ function paint(
     const img = photo
       ? `<img src="${photo.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" alt="" />`
       : `<span style="background:${accent};display:block;width:100%;height:100%"></span>`;
+    const check = place.visited ? '<span class="bordbok-check">✓</span>' : '';
     const icon = L.divIcon({
       className: 'bordbok-pin',
-      html: `<div class="bordbok-pin-inner${place.visited ? ' visited' : ''}${selected ? ' selected' : ''}" style="border-color:${accent}">${img}</div>`,
-      iconSize: [size, size],
-      iconAnchor: [size / 2, size / 2],
+      html: `<div class="bordbok-pin-wrap">${check}<div class="bordbok-pin-inner${place.visited ? ' visited' : ''}${selected ? ' selected' : ''}" style="border-color:${place.visited ? '#0B8A4B' : accent}">${img}</div></div>`,
+      iconSize: [size + 10, size + 10],
+      iconAnchor: [(size + 10) / 2, (size + 10) / 2],
     });
     const marker = L.marker([place.latitude, place.longitude], { icon });
     const rating = place.googleRating ? ` · ${place.googleRating.toFixed(1)}` : '';
-    marker.bindTooltip(`${place.name}${rating}`, { direction: 'top' });
+    marker.bindTooltip(`${place.name}${rating} · ${place.visited ? 'Visited' : 'To try'}`, {
+      direction: 'top',
+    });
     marker.on('click', () => onSelect(place.id));
     marker.addTo(layer);
   });

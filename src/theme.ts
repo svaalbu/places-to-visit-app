@@ -9,6 +9,7 @@ export const colors = {
   line: '#E2D6C8',
   forest: '#2C4A3E',
   copper: '#C4622D',
+  visited: '#0B8A4B',
   white: '#FFFFFF',
   overlay: 'rgba(31, 26, 22, 0.45)',
 };

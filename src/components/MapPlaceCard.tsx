@@ -31,11 +31,14 @@ export function MapPlaceCard({ place, list, onOpen, onToggleVisited }: Props) {
         <Text style={styles.name} numberOfLines={1}>
           {place.name}
         </Text>
+        {place.visited ? <Text style={styles.been}>Visited</Text> : <Text style={styles.toTry}>Still to try</Text>}
         <Text style={styles.meta} numberOfLines={1}>
           {place.neighborhood} · {place.address}
         </Text>
         <Pressable onPress={onToggleVisited} style={styles.check}>
-          <Text style={styles.checkLabel}>{place.visited ? 'Visited · undo' : 'Check off visit'}</Text>
+          <Text style={[styles.checkLabel, place.visited && { color: colors.visited }]}>
+            {place.visited ? 'Visited · tap to undo' : 'Check off visit'}
+          </Text>
         </Pressable>
       </View>
     </Pressable>
@@ -75,6 +78,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.ink,
     marginTop: 4,
+  },
+  been: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.visited,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  toTry: {
+    fontFamily: fonts.sans,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.muted,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   meta: {
     fontFamily: fonts.sans,

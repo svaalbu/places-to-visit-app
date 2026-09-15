@@ -6,6 +6,34 @@ import { seedLists, seedPlaces } from '@/src/data/seed';
 import { createId } from '@/src/lib/id';
 import type { Place, PlaceList } from '@/src/types';
 
+function mergePlaces(saved: Place[] | undefined, seed: Place[]): Place[] {
+  const previous = new Map((saved ?? []).map((place) => [place.id, place]));
+  const seedIds = new Set(seed.map((place) => place.id));
+  const merged = seed.map((place) => {
+    const existing = previous.get(place.id);
+    if (!existing) {
+      return place;
+    }
+    return {
+      ...place,
+      visited: existing.visited,
+      visitedAt: existing.visitedAt,
+      note: existing.note,
+      photoUri: existing.photoUri,
+    };
+  });
+  const extras = (saved ?? []).filter((place) => !seedIds.has(place.id));
+  return [...merged, ...extras];
+}
+
+function mergeLists(saved: PlaceList[] | undefined, seed: PlaceList[]): PlaceList[] {
+  const previous = new Map((saved ?? []).map((list) => [list.id, list]));
+  const seedIds = new Set(seed.map((list) => list.id));
+  const merged = seed.map((list) => previous.get(list.id) ?? list);
+  const extras = (saved ?? []).filter((list) => !seedIds.has(list.id));
+  return [...merged, ...extras];
+}
+
 type BordbokState = {
   lists: PlaceList[];
   places: Place[];
@@ -82,6 +110,14 @@ export const useBordbok = create<BordbokState>()(
       name: 'bordbok-oslo-v2',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ lists: state.lists, places: state.places }),
+      merge: (persisted, current) => {
+        const saved = persisted as { lists?: PlaceList[]; places?: Place[] } | undefined;
+        return {
+          ...current,
+          lists: mergeLists(saved?.lists, seedLists),
+          places: mergePlaces(saved?.places, seedPlaces),
+        };
+      },
     },
   ),
 );

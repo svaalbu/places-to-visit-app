@@ -8,8 +8,8 @@ const pairs = [...source.matchAll(/latitude: ([0-9.]+),\s*\n\s*longitude: ([0-9.
 const visited = [...source.matchAll(/visited: true/g)];
 const lists = [...source.matchAll(/id: '(cafes|high-end|regular)'/g)];
 
-if (pairs.length < 12) {
-  throw new Error(`Expected at least 12 seed coordinates, found ${pairs.length}`);
+if (pairs.length < 30) {
+  throw new Error(`Expected a full Oslo starter set, found ${pairs.length}`);
 }
 if (lists.length < 3) {
   throw new Error('Starter lists for cafés, high end, and regular are required');

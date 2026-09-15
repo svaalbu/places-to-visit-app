@@ -67,7 +67,8 @@ This repo is Expo / React Native (SDK 57), not a Swift Xcode project.
 ## Features
 
 - **Map first** — the home screen is Oslo on satellite/hybrid tiles, with photo pins.
-- **Google rating floors** — cafés 4.0+, restaurants 4.5+. Cover photos from each venue (and Google Maps links).
+- **Google rating floors** — cafés 4.0+, restaurants 4.5+. The starter map is a wide Oslo shortlist (specialty cafés, bakeries, and tables you might actually book), not every chain kiosk. Cover photos from each venue; each place links out to Google Maps.
+- **Visited on the map** — grey photo pins are still to try; a green ✓ means you have been.
 - **Lists** — Cafés, High end, Regular. Add your own lists.
 - **Visited** — check a place off from the map card, the list, or the place screen.
 - **Notes & your photo** — a short note and an optional photo you take at the table.

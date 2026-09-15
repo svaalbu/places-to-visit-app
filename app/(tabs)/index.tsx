@@ -49,7 +49,19 @@ export default function MapHomeScreen() {
       <SafeAreaView pointerEvents="box-none" style={styles.overlay} edges={['top']}>
         <View style={styles.top}>
           <Text style={styles.brand}>Bordbok</Text>
-          <Text style={styles.sub}>Oslo · photo pins on the map</Text>
+          <Text style={styles.sub}>Green check = visited. Grey pin = still to try.</Text>
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={styles.legendCheck}>
+                <Text style={styles.legendCheckMark}>✓</Text>
+              </View>
+              <Text style={styles.legendLabel}>Visited</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={styles.legendMuted} />
+              <Text style={styles.legendLabel}>To try</Text>
+            </View>
+          </View>
           <FilterChips
             selected={listFilter}
             onSelect={(key) => {
@@ -122,7 +134,44 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontSize: 13,
     color: colors.muted,
-    marginBottom: 4,
+    marginBottom: 2,
+  },
+  legend: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 6,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendCheck: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.visited,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legendCheckMark: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  legendMuted: {
+    width: 18,
+    height: 18,
+    borderRadius: 6,
+    backgroundColor: '#8A8178',
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
+  legendLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.ink,
   },
   bottom: {
     position: 'absolute',
