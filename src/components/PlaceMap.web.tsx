@@ -1,4 +1,4 @@
-import { createElement, useEffect, useRef, type CSSProperties } from 'react';
+import { createElement, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { LayerGroup, Map as LeafletMap } from 'leaflet';
 
@@ -10,19 +10,34 @@ type Props = {
   onSelect: (placeId: string) => void;
 };
 
+function ensureLeafletCss() {
+  if (typeof document === 'undefined') return;
+  if (document.querySelector('link[data-bordbok-leaflet]')) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+  link.setAttribute('data-bordbok-leaflet', 'true');
+  document.head.appendChild(link);
+}
+
 export function PlaceMap({ places, accentFor, onSelect }: Props) {
   const host = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const layerRef = useRef<LayerGroup | null>(null);
   const leafletRef = useRef<typeof import('leaflet') | null>(null);
+  const placesRef = useRef(places);
   const accentRef = useRef(accentFor);
   const selectRef = useRef(onSelect);
+  const [ready, setReady] = useState(false);
+
+  placesRef.current = places;
   accentRef.current = accentFor;
   selectRef.current = onSelect;
 
   useEffect(() => {
     let cancelled = false;
     let resize: (() => void) | undefined;
+    ensureLeafletCss();
 
     const start = async () => {
       const L = await import('leaflet');
@@ -36,17 +51,23 @@ export function PlaceMap({ places, accentFor, onSelect }: Props) {
         attributionControl: true,
       }).setView([OSLO_REGION.latitude, OSLO_REGION.longitude], 13);
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO',
-        subdomains: 'abcd',
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19,
       }).addTo(map);
 
       mapRef.current = map;
       layerRef.current = L.layerGroup().addTo(map);
-      resize = () => map.invalidateSize();
-      window.setTimeout(resize, 250);
+      paint(L, layerRef.current, placesRef.current, accentRef.current, selectRef.current);
+
+      resize = () => {
+        map.invalidateSize();
+        paint(L, layerRef.current!, placesRef.current, accentRef.current, selectRef.current);
+      };
+      window.setTimeout(resize, 50);
+      window.setTimeout(resize, 300);
       window.addEventListener('resize', resize);
+      setReady(true);
     };
 
     void start();
@@ -59,25 +80,19 @@ export function PlaceMap({ places, accentFor, onSelect }: Props) {
       mapRef.current?.remove();
       mapRef.current = null;
       layerRef.current = null;
+      setReady(false);
     };
   }, []);
 
   useEffect(() => {
     const L = leafletRef.current;
     const layer = layerRef.current;
-    if (!L || !layer) {
-      const retry = window.setTimeout(() => {
-        const lateL = leafletRef.current;
-        const lateLayer = layerRef.current;
-        if (!lateL || !lateLayer) {
-          return;
-        }
-        paint(lateL, lateLayer, places, accentRef.current, selectRef.current);
-      }, 300);
-      return () => window.clearTimeout(retry);
+    if (!ready || !L || !layer) {
+      return;
     }
     paint(L, layer, places, accentRef.current, selectRef.current);
-  }, [places]);
+    mapRef.current?.invalidateSize();
+  }, [places, ready]);
 
   return (
     <View style={styles.wrap}>
@@ -97,9 +112,9 @@ function paint(
   places.forEach((place) => {
     const accent = accentFor(place);
     const marker = L.circleMarker([place.latitude, place.longitude], {
-      radius: place.visited ? 9 : 8,
+      radius: place.visited ? 11 : 9,
       color: accent,
-      weight: 2.5,
+      weight: 3,
       fillColor: place.visited ? accent : '#FFFBF5',
       fillOpacity: 1,
     });
@@ -112,14 +127,17 @@ function paint(
 }
 
 const webMapStyle: CSSProperties = {
+  position: 'absolute',
+  inset: 0,
   width: '100%',
   height: '100%',
-  minHeight: 320,
 };
 
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
-    minHeight: 320,
+    minHeight: 420,
+    position: 'relative',
+    backgroundColor: '#E7DDD0',
   },
 });
