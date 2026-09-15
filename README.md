@@ -11,7 +11,18 @@ Use **Expo Go**. It is free. You do not pay Apple. Bordbok runs *inside* Expo Go
 1. On the iPhone, install [Expo Go](https://apps.apple.com/app/expo-go/id982107779) from the App Store.
 2. Create a free [Expo](https://expo.dev/signup) account.
 3. In Expo Go, tap the avatar and **log in** with that account.
-4. On a computer (Mac, Windows, or Linux), install [Node.js](https://nodejs.org/) 22 if you do not have it, then:
+4. On your computer, install **Node.js 22 LTS** first. `npm` and `npx` come with it. Until Node is installed, those commands will fail with `command not found`.
+
+   - Easiest on a Mac: download the **LTS** installer from [nodejs.org](https://nodejs.org/), run it, then **quit Terminal completely and open a new window**.
+   - Or with Homebrew: `brew install node@22` then follow the brew caveats so `node` is on your `PATH`.
+   - Check that it worked:
+
+```bash
+node -v
+npm -v
+```
+
+   You want Node `v22` (or at least `v20`) and an npm version printed. Then:
 
 ```bash
 git clone https://github.com/svaalbu/places-to-visit-app.git
