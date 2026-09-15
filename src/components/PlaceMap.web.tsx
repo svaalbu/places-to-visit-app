@@ -14,12 +14,24 @@ type Props = {
 
 function ensureLeafletCss() {
   if (typeof document === 'undefined') return;
-  if (document.querySelector('link[data-bordbok-leaflet]')) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-  link.setAttribute('data-bordbok-leaflet', 'true');
-  document.head.appendChild(link);
+  if (!document.querySelector('link[data-bordbok-leaflet]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    link.setAttribute('data-bordbok-leaflet', 'true');
+    document.head.appendChild(link);
+  }
+  if (!document.querySelector('style[data-bordbok-pins]')) {
+    const style = document.createElement('style');
+    style.setAttribute('data-bordbok-pins', 'true');
+    style.textContent = `
+      .leaflet-div-icon.bordbok-pin { background: transparent !important; border: 0 !important; }
+      .bordbok-pin-inner { width: 44px; height: 44px; border-radius: 14px; border: 2.5px solid #fff; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.35); background: #1c1814; box-sizing: border-box; }
+      .bordbok-pin-inner.selected { width: 52px; height: 52px; }
+      .bordbok-pin-inner img { width: 100%; height: 100%; max-width: 52px; max-height: 52px; object-fit: cover; display: block; }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
 export function PlaceMap({ places, accentFor, selectedId, onSelect }: Props) {
@@ -148,7 +160,7 @@ function paint(
       : `<span style="background:${accent};display:block;width:100%;height:100%"></span>`;
     const icon = L.divIcon({
       className: 'bordbok-pin',
-      html: `<div class="bordbok-pin-inner${place.visited ? ' visited' : ''}${selected ? ' selected' : ''}" style="border-color:${accent};width:${size}px;height:${size}px">${img}</div>`,
+      html: `<div class="bordbok-pin-inner${place.visited ? ' visited' : ''}${selected ? ' selected' : ''}" style="border-color:${accent}">${img}</div>`,
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],
     });
