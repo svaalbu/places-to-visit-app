@@ -6,11 +6,29 @@ Keep separate lists (cafés, high end, regular, or any list you add), check off 
 
 ## On your iPhone
 
-1. Install [Expo Go](https://apps.apple.com/app/expo-go/id982107779).
-2. On a Mac: `npm install` then `npx expo start`, and scan the QR code with the Camera app.
-3. Or build a device binary later with [EAS Build](https://docs.expo.dev/build/setup/) (`npx eas build --platform ios`).
+**Expo Go is not a regular app.** It is a playground: you open Expo Go, scan a QR code from a computer running `npx expo start`, and Bordbok runs *inside* Expo Go. It does not get its own home-screen icon, it needs that development session (or a matching published update), and Expo does not treat it as the way to ship something you use every day.
 
-This repo is an Expo / React Native app (Expo SDK 57). It is meant to be opened in Expo Go or compiled in Xcode via EAS — it is not a Swift project.
+For everyday use, install **Bordbok itself** with [EAS Build](https://docs.expo.dev/build/setup/) and **TestFlight**. Then it behaves like any other iPhone app: own icon, works offline, no Expo Go, no laptop.
+
+You need:
+
+1. An [Apple Developer Program](https://developer.apple.com/programs/) membership (paid, required for TestFlight).
+2. A free [Expo](https://expo.dev) account.
+3. These commands from the project folder (once):
+
+```bash
+npm install
+npx eas-cli@latest login
+npx eas-cli@latest init
+npx eas-cli@latest build --platform ios --profile production
+npx eas-cli@latest submit --platform ios
+```
+
+EAS walks you through Apple login, certificates, and App Store Connect. After the build is submitted, install **TestFlight** from the App Store, accept Bordbok, and add it to your home screen.
+
+A `preview` profile in `eas.json` can also install a production-like build on your registered iPhone without the public App Store (`--profile preview`). TestFlight is usually simpler for one personal phone.
+
+This repo is Expo / React Native (SDK 57), not a Swift Xcode project.
 
 ## Features
 
