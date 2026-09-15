@@ -19,8 +19,8 @@ export default function ListsScreen() {
         <Text style={styles.kicker}>Oslo</Text>
         <Text style={layout.title}>Lists</Text>
         <Text style={[layout.subtitle, styles.lede]}>
-          Cafés from Google 4.0 up. Restaurants from 4.5 up. The map is the main view — lists are
-          for sorting the same places.
+          Cafés from Google 4.0 up. Restaurants from 4.5 up. List photos come from Google Maps once
+          you add an API key.
         </Text>
 
         <View style={styles.stats}>
@@ -54,6 +54,7 @@ export default function ListsScreen() {
               <ListCard
                 key={list.id}
                 list={list}
+                places={places.filter((place) => place.listId === list.id)}
                 visited={counts.visited}
                 total={counts.total}
                 onPress={() => router.push(`/list/${list.id}`)}

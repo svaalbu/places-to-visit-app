@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import MapView, { Marker, type Region } from 'react-native-maps';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { useGooglePhotoMap } from '@/src/lib/googleMapsPhotos';
 import { coverPhoto } from '@/src/lib/placeMedia';
 import { colors } from '@/src/theme';
 import { OSLO_REGION, type Place } from '@/src/types';
@@ -15,6 +16,7 @@ type Props = {
 
 export function PlaceMap({ places, accentFor, selectedId, onSelect }: Props) {
   const region: Region = OSLO_REGION;
+  const googleById = useGooglePhotoMap((state) => state.byId);
 
   return (
     <MapView
@@ -24,7 +26,7 @@ export function PlaceMap({ places, accentFor, selectedId, onSelect }: Props) {
       userInterfaceStyle="light">
       {places.map((place) => {
         const accent = accentFor(place);
-        const photo = coverPhoto(place);
+        const photo = coverPhoto(place, googleById[place.id]);
         const selected = place.id === selectedId;
         const size = selected ? 52 : 44;
         return (

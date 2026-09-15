@@ -67,7 +67,7 @@ This repo is Expo / React Native (SDK 57), not a Swift Xcode project.
 ## Features
 
 - **Map first** — the home screen is Oslo on satellite/hybrid tiles, with photo pins.
-- **Google rating floors** — cafés 4.0+, restaurants 4.5+. The starter map is a wide Oslo shortlist (specialty cafés, bakeries, and tables you might actually book), not every chain kiosk. Cover photos from each venue; each place links out to Google Maps.
+- **Google rating floors** — cafés 4.0+, restaurants 4.5+. The starter map is a wide Oslo shortlist (specialty cafés, bakeries, and tables you might actually book), not every chain kiosk. **Cover photos come from Google Maps** (the listing photo when Places finds one, otherwise Street View of the pin). Each place still links out to Google Maps.
 - **Visited on the map** — grey photo pins are still to try; a green ✓ means you have been.
 - **Lists** — Cafés, High end, Regular. Add your own lists.
 - **Visited** — check a place off from the map card, the list, or the place screen.
@@ -87,3 +87,22 @@ npx expo start
 - `npx expo start --web` — browser preview (phone-sized frame, map included)
 - `npm run typecheck` — TypeScript
 - `npm run validate-seed` — Oslo coordinate sanity check
+
+## Google Maps photos
+
+List rows, list cards, map pins, and place screens load covers from **Google Maps**. That uses the official [Places API (New)](https://developers.google.com/maps/documentation/places/web-service/place-photos) plus Street View as a fallback so a pin still has a photo when the listing has no picture yet.
+
+Google does not allow apps to scrape Maps. You need a key:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create a project (or pick one).
+2. Enable **Places API (New)** and **Street View Static API**. Billing has to be on; Google’s free monthly credit usually covers light personal use.
+3. Create an API key. Restrict it to the iOS bundle `no.bordbok.app` (and your machine/IP while testing).
+4. In the project folder, copy `.env.example` to `.env` and set:
+
+```bash
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=your-key-here
+```
+
+5. Stop Expo and start it again (`npx expo start`) so the key is picked up.
+
+Until that key is set, lists fall back to the few venue-site photos already in the starter data, and many rows stay blank. After the key is in, reload Expo Go — photos fill in over a few seconds.

@@ -2,6 +2,7 @@ import { createElement, useEffect, useRef, useState, type CSSProperties } from '
 import { StyleSheet, View } from 'react-native';
 import type { LayerGroup, Map as LeafletMap } from 'leaflet';
 
+import { useGooglePhotoMap } from '@/src/lib/googleMapsPhotos';
 import { coverPhoto } from '@/src/lib/placeMedia';
 import { OSLO_REGION, type Place } from '@/src/types';
 
@@ -50,6 +51,7 @@ export function PlaceMap({ places, accentFor, selectedId, onSelect }: Props) {
   const selectRef = useRef(onSelect);
   const selectedRef = useRef(selectedId);
   const [ready, setReady] = useState(false);
+  const googleById = useGooglePhotoMap((state) => state.byId);
 
   placesRef.current = places;
   accentRef.current = accentFor;
@@ -136,9 +138,9 @@ export function PlaceMap({ places, accentFor, selectedId, onSelect }: Props) {
     if (!ready || !L || !layer) {
       return;
     }
-    paint(L, layer, places, accentRef.current, selectRef.current, selectedId);
+    paint(L, layer, places, accentRef.current, selectRef.current, selectedId, googleById);
     mapRef.current?.invalidateSize();
-  }, [places, ready, selectedId]);
+  }, [googleById, places, ready, selectedId]);
 
   return (
     <View style={styles.wrap}>
@@ -154,11 +156,12 @@ function paint(
   accentFor: (place: Place) => string,
   onSelect: (placeId: string) => void,
   selectedId?: string,
+  googleById: Record<string, string> = {},
 ) {
   layer.clearLayers();
   places.forEach((place) => {
     const accent = accentFor(place);
-    const photo = coverPhoto(place);
+    const photo = coverPhoto(place, googleById[place.id]);
     const selected = place.id === selectedId;
     const size = selected ? 52 : 44;
     const img = photo

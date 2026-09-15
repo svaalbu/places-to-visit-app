@@ -1,8 +1,11 @@
 import { ThemeProvider, DefaultTheme, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 
+import { prefetchGooglePhotos } from '@/src/lib/googleMapsPhotos';
+import { useBordbok } from '@/src/store';
 import { colors } from '@/src/theme';
 
 export { ErrorBoundary } from 'expo-router';
@@ -23,11 +26,22 @@ const journalTheme = {
   },
 };
 
+function GooglePhotoPrefetch() {
+  const places = useBordbok((state) => state.places);
+
+  useEffect(() => {
+    prefetchGooglePhotos(places);
+  }, [places]);
+
+  return null;
+}
+
 export default function RootLayout() {
   const frame = Platform.OS === 'web';
 
   return (
     <ThemeProvider value={journalTheme}>
+      <GooglePhotoPrefetch />
       <View style={frame ? styles.webPage : styles.fill}>
         <View style={frame ? styles.phone : styles.fill}>
           <Stack

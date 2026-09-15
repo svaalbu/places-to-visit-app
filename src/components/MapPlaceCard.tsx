@@ -1,7 +1,7 @@
-import { Image } from 'expo-image';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { coverPhoto, formatGoogleRating } from '@/src/lib/placeMedia';
+import { PlaceCover } from '@/src/components/PlaceCover';
+import { formatGoogleRating } from '@/src/lib/placeMedia';
 import { colors, fonts } from '@/src/theme';
 import type { Place, PlaceList } from '@/src/types';
 
@@ -13,16 +13,12 @@ type Props = {
 };
 
 export function MapPlaceCard({ place, list, onOpen, onToggleVisited }: Props) {
-  const photo = coverPhoto(place);
   const rating = formatGoogleRating(place);
+  const accent = list?.accent ?? colors.forest;
 
   return (
     <Pressable onPress={onOpen} style={styles.card}>
-      {photo ? (
-        <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" />
-      ) : (
-        <View style={[styles.photo, { backgroundColor: list?.accent ?? colors.forest }]} />
-      )}
+      <PlaceCover place={place} accent={accent} style={styles.photo} />
       <View style={styles.body}>
         <Text style={styles.kicker}>
           {list?.name}

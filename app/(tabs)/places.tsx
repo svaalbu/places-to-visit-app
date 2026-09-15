@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FilterChips } from '@/src/components/FilterChips';
 import { PlaceRow } from '@/src/components/PlaceRow';
+import { hasGoogleMapsKey } from '@/src/lib/googleMapsKey';
 import { useBordbok } from '@/src/store';
 import { colors, fonts, layout } from '@/src/theme';
 import type { VisitFilter } from '@/src/types';
@@ -37,7 +38,11 @@ export default function PlacesScreen() {
             <Text style={styles.addLabel}>Add</Text>
           </Pressable>
         </View>
-        <Text style={layout.subtitle}>High-rated Oslo only. Check off visits, open a pin for the photo.</Text>
+        <Text style={layout.subtitle}>
+          {hasGoogleMapsKey()
+            ? 'Covers come from Google Maps. Check off visits from the photo row.'
+            : 'Add EXPO_PUBLIC_GOOGLE_MAPS_API_KEY to load Google Maps photos in this list.'}
+        </Text>
         <View style={styles.chips}>
           <FilterChips
             selected={listFilter}
@@ -62,7 +67,6 @@ export default function PlacesScreen() {
         data={visible}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        ItemSeparatorComponent={() => <View style={styles.sep} />}
         ListEmptyComponent={<Text style={styles.empty}>No places in this filter yet.</Text>}
         renderItem={({ item }) => {
           const list = lists.find((entry) => entry.id === item.listId);
@@ -112,10 +116,7 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 16,
     paddingBottom: 40,
-  },
-  sep: {
-    height: 1,
-    backgroundColor: colors.line,
+    gap: 12,
   },
   empty: {
     fontFamily: fonts.sans,

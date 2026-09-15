@@ -15,8 +15,9 @@ import {
 } from 'react-native';
 
 import { confirmAction } from '@/src/lib/confirm';
-import { coverPhoto, formatGoogleRating, googleMapsUrl } from '@/src/lib/placeMedia';
+import { formatGoogleRating, googleMapsUrl } from '@/src/lib/placeMedia';
 import { pickPlacePhoto } from '@/src/lib/photo';
+import { PlaceCover } from '@/src/components/PlaceCover';
 import { useBordbok } from '@/src/store';
 import { colors, fonts, layout } from '@/src/theme';
 
@@ -76,9 +77,7 @@ export default function PlaceDetailScreen() {
         }}
       />
       <ScrollView contentContainerStyle={styles.content}>
-        {coverPhoto(place) ? (
-          <Image source={{ uri: coverPhoto(place) }} style={styles.hero} contentFit="cover" />
-        ) : null}
+        <PlaceCover place={place} accent={list?.accent ?? colors.forest} style={styles.hero} />
         <Pressable
           onPress={() => {
             void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -111,7 +110,7 @@ export default function PlaceDetailScreen() {
           <Image source={{ uri: place.photoUri }} style={styles.photo} contentFit="cover" />
         ) : (
           <View style={styles.photoEmpty}>
-            <Text style={styles.photoHint}>Add your own shot — the cover photo stays from the venue</Text>
+            <Text style={styles.photoHint}>Add your own shot — the cover stays from Google Maps</Text>
           </View>
         )}
         <Pressable onPress={() => void addPhoto()} style={styles.secondary}>

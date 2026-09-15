@@ -1,25 +1,38 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PlaceCover } from '@/src/components/PlaceCover';
 import { colors, fonts } from '@/src/theme';
-import type { PlaceList } from '@/src/types';
+import type { Place, PlaceList } from '@/src/types';
 
 type Props = {
   list: PlaceList;
+  places: Place[];
   visited: number;
   total: number;
   onPress: () => void;
 };
 
-export function ListCard({ list, visited, total, onPress }: Props) {
+export function ListCard({ list, places, visited, total, onPress }: Props) {
   const ratio = total === 0 ? 0 : visited / total;
+  const covers = places.slice(0, 3);
 
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      <View style={[styles.stripe, { backgroundColor: list.accent }]} />
+      <View style={styles.mosaic}>
+        {covers.length === 0 ? (
+          <View style={[styles.photo, { backgroundColor: list.accent }]} />
+        ) : (
+          covers.map((place) => (
+            <PlaceCover key={place.id} place={place} accent={list.accent} style={styles.photo} />
+          ))
+        )}
+      </View>
       <View style={styles.body}>
         <Text style={styles.kicker}>{total} places</Text>
         <Text style={styles.name}>{list.name}</Text>
-        <Text style={styles.subtitle}>{list.subtitle}</Text>
+        <Text style={styles.subtitle} numberOfLines={2}>
+          {list.subtitle}
+        </Text>
         <View style={styles.track}>
           <View style={[styles.fill, { width: `${Math.round(ratio * 100)}%`, backgroundColor: list.accent }]} />
         </View>
@@ -45,8 +58,13 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
     opacity: 0.94,
   },
-  stripe: {
-    width: 10,
+  mosaic: {
+    width: 108,
+    alignSelf: 'stretch',
+  },
+  photo: {
+    flex: 1,
+    width: '100%',
   },
   body: {
     flex: 1,

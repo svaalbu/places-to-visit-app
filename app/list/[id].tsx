@@ -59,7 +59,7 @@ export default function ListDetailScreen() {
           <Text style={styles.addLabel}>Add a place to {list.name}</Text>
         </Pressable>
         {items.map((place) => (
-          <View key={place.id}>
+          <View key={place.id} style={styles.rowWrap}>
             <PlaceRow
               place={place}
               accent={list.accent}
@@ -69,7 +69,6 @@ export default function ListDetailScreen() {
                 toggleVisited(place.id);
               }}
             />
-            <View style={styles.sep} />
           </View>
         ))}
         {items.length === 0 ? (
@@ -109,9 +108,8 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sans,
     fontWeight: '700',
   },
-  sep: {
-    height: 1,
-    backgroundColor: colors.line,
+  rowWrap: {
+    marginBottom: 12,
   },
   empty: {
     fontFamily: fonts.sans,

@@ -1,7 +1,13 @@
+import { useGooglePhotoMap } from '@/src/lib/googleMapsPhotos';
 import type { Place } from '@/src/types';
 
-export function coverPhoto(place: Place): string | undefined {
-  return place.photoUri || place.coverPhotoUrl;
+export function coverPhoto(place: Place, googleUri?: string): string | undefined {
+  return place.photoUri || googleUri || place.coverPhotoUrl;
+}
+
+export function useCoverPhoto(place: Place): string | undefined {
+  const googleUri = useGooglePhotoMap((state) => state.byId[place.id]);
+  return coverPhoto(place, googleUri);
 }
 
 export function googleMapsUrl(place: Pick<Place, 'name' | 'address'>): string {
