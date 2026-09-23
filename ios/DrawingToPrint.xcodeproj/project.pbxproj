@@ -1,0 +1,373 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA1000000000000000000001 /* DrawingToPrintApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000001 /* DrawingToPrintApp.swift */; };
+		AA1000000000000000000002 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000002 /* AppState.swift */; };
+		AA1000000000000000000003 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000003 /* AppConfig.swift */; };
+		AA1000000000000000000004 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000004 /* RootView.swift */; };
+		AA1000000000000000000005 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000005 /* HelpView.swift */; };
+		AA1000000000000000000006 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000006 /* SettingsView.swift */; };
+		AA1000000000000000000007 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000007 /* CaptureView.swift */; };
+		AA1000000000000000000008 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000008 /* CameraPicker.swift */; };
+		AA1000000000000000000009 /* CropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000009 /* CropView.swift */; };
+		AA1000000000000000000010 /* ImagePrep.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000010 /* ImagePrep.swift */; };
+		AA1000000000000000000011 /* GenerateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000011 /* GenerateView.swift */; };
+		AA1000000000000000000012 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000012 /* PreviewView.swift */; };
+		AA1000000000000000000013 /* OrbitPreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000013 /* OrbitPreviewView.swift */; };
+		AA1000000000000000000014 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000014 /* ShareSheet.swift */; };
+		AA1000000000000000000015 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000015 /* Models.swift */; };
+		AA1000000000000000000016 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000016 /* APIClient.swift */; };
+		AA1000000000000000000017 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000017 /* Assets.xcassets */; };
+		AA1000000000000000000018 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA2000000000000000000018 /* PrivacyInfo.xcprivacy */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA2000000000000000000001 /* DrawingToPrintApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingToPrintApp.swift; sourceTree = "<group>"; };
+		AA2000000000000000000002 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		AA2000000000000000000003 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		AA2000000000000000000004 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		AA2000000000000000000005 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
+		AA2000000000000000000006 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AA2000000000000000000007 /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
+		AA2000000000000000000008 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
+		AA2000000000000000000009 /* CropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CropView.swift; sourceTree = "<group>"; };
+		AA2000000000000000000010 /* ImagePrep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePrep.swift; sourceTree = "<group>"; };
+		AA2000000000000000000011 /* GenerateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateView.swift; sourceTree = "<group>"; };
+		AA2000000000000000000012 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
+		AA2000000000000000000013 /* OrbitPreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbitPreviewView.swift; sourceTree = "<group>"; };
+		AA2000000000000000000014 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
+		AA2000000000000000000015 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		AA2000000000000000000016 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		AA2000000000000000000017 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA2000000000000000000018 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AA2000000000000000000019 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA2000000000000000000020 /* DrawingToPrint.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DrawingToPrint.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA3000000000000000000003 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AA4000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				AA4000000000000000000002 /* DrawingToPrint */,
+				AA4000000000000000000008 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AA4000000000000000000002 /* DrawingToPrint */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000001 /* DrawingToPrintApp.swift */,
+				AA2000000000000000000002 /* AppState.swift */,
+				AA2000000000000000000003 /* AppConfig.swift */,
+				AA2000000000000000000004 /* RootView.swift */,
+				AA2000000000000000000005 /* HelpView.swift */,
+				AA2000000000000000000006 /* SettingsView.swift */,
+				AA4000000000000000000003 /* Capture */,
+				AA4000000000000000000004 /* Crop */,
+				AA4000000000000000000005 /* Generate */,
+				AA4000000000000000000006 /* Preview */,
+				AA4000000000000000000007 /* Networking */,
+				AA2000000000000000000017 /* Assets.xcassets */,
+				AA2000000000000000000018 /* PrivacyInfo.xcprivacy */,
+				AA2000000000000000000019 /* Info.plist */,
+			);
+			path = DrawingToPrint;
+			sourceTree = "<group>";
+		};
+		AA4000000000000000000003 /* Capture */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000007 /* CaptureView.swift */,
+				AA2000000000000000000008 /* CameraPicker.swift */,
+			);
+			path = Capture;
+			sourceTree = "<group>";
+		};
+		AA4000000000000000000004 /* Crop */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000009 /* CropView.swift */,
+				AA2000000000000000000010 /* ImagePrep.swift */,
+			);
+			path = Crop;
+			sourceTree = "<group>";
+		};
+		AA4000000000000000000005 /* Generate */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000011 /* GenerateView.swift */,
+			);
+			path = Generate;
+			sourceTree = "<group>";
+		};
+		AA4000000000000000000006 /* Preview */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000012 /* PreviewView.swift */,
+				AA2000000000000000000013 /* OrbitPreviewView.swift */,
+				AA2000000000000000000014 /* ShareSheet.swift */,
+			);
+			path = Preview;
+			sourceTree = "<group>";
+		};
+		AA4000000000000000000007 /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000015 /* Models.swift */,
+				AA2000000000000000000016 /* APIClient.swift */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		AA4000000000000000000008 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA2000000000000000000020 /* DrawingToPrint.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA5000000000000000000001 /* DrawingToPrint */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA6000000000000000000003 /* Build configuration list for PBXNativeTarget "DrawingToPrint" */;
+			buildPhases = (
+				AA3000000000000000000001 /* Sources */,
+				AA3000000000000000000003 /* Frameworks */,
+				AA3000000000000000000002 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DrawingToPrint;
+			productName = DrawingToPrint;
+			productReference = AA2000000000000000000020 /* DrawingToPrint.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AA5000000000000000000002 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					AA5000000000000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = AA6000000000000000000001 /* Build configuration list for PBXProject "DrawingToPrint" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AA4000000000000000000001;
+			productRefGroup = AA4000000000000000000008 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AA5000000000000000000001 /* DrawingToPrint */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA3000000000000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA1000000000000000000017 /* Assets.xcassets in Resources */,
+				AA1000000000000000000018 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AA3000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA1000000000000000000001 /* DrawingToPrintApp.swift in Sources */,
+				AA1000000000000000000002 /* AppState.swift in Sources */,
+				AA1000000000000000000003 /* AppConfig.swift in Sources */,
+				AA1000000000000000000004 /* RootView.swift in Sources */,
+				AA1000000000000000000005 /* HelpView.swift in Sources */,
+				AA1000000000000000000006 /* SettingsView.swift in Sources */,
+				AA1000000000000000000007 /* CaptureView.swift in Sources */,
+				AA1000000000000000000008 /* CameraPicker.swift in Sources */,
+				AA1000000000000000000009 /* CropView.swift in Sources */,
+				AA1000000000000000000010 /* ImagePrep.swift in Sources */,
+				AA1000000000000000000011 /* GenerateView.swift in Sources */,
+				AA1000000000000000000012 /* PreviewView.swift in Sources */,
+				AA1000000000000000000013 /* OrbitPreviewView.swift in Sources */,
+				AA1000000000000000000014 /* ShareSheet.swift in Sources */,
+				AA1000000000000000000015 /* Models.swift in Sources */,
+				AA1000000000000000000016 /* APIClient.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AA7000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AA7000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AA7000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DrawingToPrint/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Drawing to Print";
+				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Drawing to Print photographs your drawing so it can generate a 3D model to print.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Drawing to Print uses a photo of your drawing to generate a 3D model to print.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.drawingtoprint.DrawingToPrint;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AA7000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = DrawingToPrint/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Drawing to Print";
+				INFOPLIST_KEY_LSRequiresIPhoneOS = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Drawing to Print photographs your drawing so it can generate a 3D model to print.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Drawing to Print uses a photo of your drawing to generate a 3D model to print.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.drawingtoprint.DrawingToPrint;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA6000000000000000000001 /* Build configuration list for PBXProject "DrawingToPrint" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA7000000000000000000001 /* Debug */,
+				AA7000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA6000000000000000000003 /* Build configuration list for PBXNativeTarget "DrawingToPrint" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA7000000000000000000003 /* Debug */,
+				AA7000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AA5000000000000000000002 /* Project object */;
+}
