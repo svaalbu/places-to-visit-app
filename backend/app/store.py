@@ -5,7 +5,7 @@ import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 from app.config import settings
 
@@ -22,17 +22,17 @@ class JobRecord:
     target_size_mm: float
     created_at: str
     updated_at: str
-    error: str | None = None
-    warnings: list[dict[str, str]] = field(default_factory=list)
-    bbox_mm: dict[str, float] | None = None
-    min_extent_mm: float | None = None
-    is_watertight: bool | None = None
-    triangle_count: int | None = None
-    prepared_size_mm: float | None = None
+    error: Optional[str] = None
+    warnings: List[Dict[str, str]] = field(default_factory=list)
+    bbox_mm: Optional[Dict[str, float]] = None
+    min_extent_mm: Optional[float] = None
+    is_watertight: Optional[bool] = None
+    triangle_count: Optional[int] = None
+    prepared_size_mm: Optional[float] = None
     y_up_source: bool = False
     source_ext: str = "glb"
 
-    def to_public(self) -> dict[str, Any]:
+    def to_public(self) -> Dict[str, Any]:
         ready = self.status == "ready"
         return {
             "id": self.id,
@@ -53,7 +53,7 @@ class JobRecord:
 
 
 class JobStore:
-    def __init__(self, root: Path | None = None) -> None:
+    def __init__(self, root: Optional[Path] = None) -> None:
         self.root = Path(root or settings.job_dir)
         self.root.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
@@ -72,7 +72,7 @@ class JobStore:
         with self._lock:
             path.write_text(json.dumps(asdict(record), indent=2), encoding="utf-8")
 
-    def get(self, job_id: str) -> JobRecord | None:
+    def get(self, job_id: str) -> Optional[JobRecord]:
         path = self._meta_path(job_id)
         if not path.exists():
             return None
@@ -93,7 +93,7 @@ class JobStore:
         path.write_bytes(data)
         return path
 
-    def read_bytes(self, job_id: str, name: str) -> bytes | None:
+    def read_bytes(self, job_id: str, name: str) -> Optional[bytes]:
         path = self.job_dir(job_id) / name
         if not path.exists():
             return None

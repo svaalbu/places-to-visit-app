@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import zipfile
+from typing import List
 from xml.sax.saxutils import escape
 
 import numpy as np
@@ -29,7 +30,7 @@ def _fmt(value: float) -> str:
 def build_model_xml(mesh: trimesh.Trimesh, object_name: str = "Drawing") -> str:
     vertices = np.asarray(mesh.vertices, dtype=float)
     faces = np.asarray(mesh.faces, dtype=int)
-    lines: list[str] = [
+    lines: List[str] = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<model unit="millimeter" xml:lang="en-US" '
         'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">',

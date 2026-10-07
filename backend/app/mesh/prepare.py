@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import trimesh
@@ -14,7 +15,7 @@ class PreparedMesh:
     mesh: trimesh.Trimesh
     target_size_mm: float
     is_watertight: bool
-    warnings: list[dict[str, str]]
+    warnings: List[Dict[str, str]]
     used_voxel_fallback: bool
 
 
@@ -105,7 +106,7 @@ def prepare_for_print(
     target_size_mm: float,
     y_up: bool = False,
 ) -> PreparedMesh:
-    warnings: list[dict[str, str]] = []
+    warnings: List[Dict[str, str]] = []
     used_voxel = False
 
     size = float(np.clip(target_size_mm, settings.min_size_mm, settings.max_size_mm))
@@ -199,7 +200,7 @@ def rescale_prepared(mesh: trimesh.Trimesh, target_size_mm: float) -> trimesh.Tr
     return work
 
 
-def preview_payload(mesh: trimesh.Trimesh, max_faces: int | None = None) -> dict:
+def preview_payload(mesh: trimesh.Trimesh, max_faces: Optional[int] = None) -> Dict[str, Any]:
     cap = max_faces or settings.max_preview_faces
     preview = mesh
     if len(mesh.faces) > cap:

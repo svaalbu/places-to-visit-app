@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from app.mesh.prepare import PreparedMesh, prepare_for_print
 from app.mesh.threemf import write_3mf
 

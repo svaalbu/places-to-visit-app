@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 import asyncio
-from typing import Any
+from typing import Any, Dict, Optional
 
 import httpx
 
@@ -22,7 +22,7 @@ class MeshyProvider:
         base_url: str = "https://api.meshy.ai",
         poll_seconds: float = 4.0,
         timeout_seconds: float = 180.0,
-        transport: httpx.AsyncBaseTransport | None = None,
+        transport: Optional[httpx.AsyncBaseTransport] = None,
     ) -> None:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
@@ -30,7 +30,7 @@ class MeshyProvider:
         self.timeout_seconds = timeout_seconds
         self.transport = transport
 
-    def _headers(self) -> dict[str, str]:
+    def _headers(self) -> Dict[str, str]:
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -41,7 +41,7 @@ class MeshyProvider:
         if mime not in {"image/jpeg", "image/jpg", "image/png"}:
             mime = "image/png"
         data_uri = f"data:{mime};base64,{base64.b64encode(image_bytes).decode('ascii')}"
-        payload: dict[str, Any] = {
+        payload: Dict[str, Any] = {
             "image_url": data_uri,
             "ai_model": "latest",
             "should_texture": False,
@@ -65,7 +65,7 @@ class MeshyProvider:
                 raise MeshyError(f"Meshy create response missing task id: {body!r}")
 
             elapsed = 0.0
-            task: dict[str, Any] = {}
+            task: Dict[str, Any] = {}
             while elapsed <= self.timeout_seconds:
                 polled = await client.get(
                     f"{self.base_url}/openapi/v1/image-to-3d/{task_id}",

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from app.providers.base import MeshBytes, Provider
 from app.providers.factory import get_provider
 

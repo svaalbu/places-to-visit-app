@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from app.config import settings
 from app.providers.base import Provider
 from app.providers.meshy import MeshyProvider

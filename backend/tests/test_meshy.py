@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from typing import List
+
 import httpx
 import pytest
 
 from app.providers.meshy import MeshyError, MeshyProvider
 
 
-def _transport(responses: list[httpx.Response]) -> httpx.MockTransport:
+def _transport(responses: List[httpx.Response]) -> httpx.MockTransport:
     queue = list(responses)
 
     def handler(request: httpx.Request) -> httpx.Response:

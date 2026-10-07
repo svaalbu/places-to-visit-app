@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 import trimesh
 
@@ -13,12 +14,12 @@ from app.providers.factory import get_provider
 from app.store import JobRecord, store
 
 
-def clamp_size(size_mm: float | None) -> float:
+def clamp_size(size_mm: Optional[float]) -> float:
     value = settings.default_size_mm if size_mm is None else float(size_mm)
     return max(settings.min_size_mm, min(settings.max_size_mm, value))
 
 
-def create_job(image_bytes: bytes, content_type: str, target_size_mm: float | None) -> JobRecord:
+def create_job(image_bytes: bytes, content_type: str, target_size_mm: Optional[float]) -> JobRecord:
     job_id = str(uuid.uuid4())
     provider = get_provider()
     record = JobRecord(
@@ -95,7 +96,7 @@ def _write_artifacts(job_id: str, mesh: trimesh.Trimesh, size_mm: float) -> None
     store.write_bytes(job_id, "prepared.stl", stl)
 
 
-def export_at_size(job_id: str, size_mm: float | None, fmt: str) -> bytes:
+def export_at_size(job_id: str, size_mm: Optional[float], fmt: str) -> bytes:
     record = store.get(job_id)
     if record is None or record.status != "ready":
         raise KeyError(job_id)

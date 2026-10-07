@@ -11,6 +11,8 @@ backend/   FastAPI service (image-to-3D adapter + print prep)
 
 ## Run the backend
 
+Python **3.9 or newer** (macOS Command Line Tools 3.9 is fine). You do not need to upgrade to 3.10+.
+
 ```bash
 cd backend
 python3 -m venv .venv

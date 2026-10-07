@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Dict, Optional
+
 from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
@@ -29,7 +31,7 @@ app.add_middleware(
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
+def health() -> Dict[str, str]:
     provider = "meshy" if (settings.meshy_api_key or "").strip() else "stub"
     return {"status": "ok", "provider": provider}
 
@@ -38,8 +40,8 @@ def health() -> dict[str, str]:
 async def post_job(
     background_tasks: BackgroundTasks,
     image: UploadFile = File(..., description="Cropped JPEG or PNG of one drawing"),
-    target_size_mm: float | None = Form(default=None),
-    x_device_id: str | None = Header(default=None, alias="X-Device-Id"),
+    target_size_mm: Optional[float] = Form(default=None),
+    x_device_id: Optional[str] = Header(default=None, alias="X-Device-Id"),
 ) -> JobCreateResponse:
     del x_device_id  # Prototype: anonymous device id is accepted, not stored as an account.
     content_type = image.content_type or "application/octet-stream"
@@ -73,7 +75,7 @@ def get_job(job_id: str) -> JobStatusResponse:
 @app.get("/v1/jobs/{job_id}/preview.mesh.json")
 def get_preview_json(
     job_id: str,
-    size_mm: float | None = Query(default=None),
+    size_mm: Optional[float] = Query(default=None),
 ) -> Response:
     return _export(job_id, size_mm, "json", "application/json", "preview.mesh.json")
 
@@ -81,7 +83,7 @@ def get_preview_json(
 @app.get("/v1/jobs/{job_id}/preview.glb")
 def get_preview_glb(
     job_id: str,
-    size_mm: float | None = Query(default=None),
+    size_mm: Optional[float] = Query(default=None),
 ) -> Response:
     return _export(job_id, size_mm, "glb", "model/gltf-binary", "preview.glb")
 
@@ -89,7 +91,7 @@ def get_preview_glb(
 @app.get("/v1/jobs/{job_id}/export.3mf")
 def get_export_3mf(
     job_id: str,
-    size_mm: float | None = Query(default=None),
+    size_mm: Optional[float] = Query(default=None),
 ) -> Response:
     return _export(job_id, size_mm, "3mf", "model/3mf", "drawing.3mf")
 
@@ -97,12 +99,12 @@ def get_export_3mf(
 @app.get("/v1/jobs/{job_id}/export.stl")
 def get_export_stl(
     job_id: str,
-    size_mm: float | None = Query(default=None),
+    size_mm: Optional[float] = Query(default=None),
 ) -> Response:
     return _export(job_id, size_mm, "stl", "model/stl", "drawing.stl")
 
 
-def _export(job_id: str, size_mm: float | None, fmt: str, media: str, filename: str) -> Response:
+def _export(job_id: str, size_mm: Optional[float], fmt: str, media: str, filename: str) -> Response:
     record = store.get(job_id)
     if record is None:
         raise HTTPException(status_code=404, detail="Unknown job")

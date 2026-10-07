@@ -1,4 +1,6 @@
-from typing import Literal
+from __future__ import annotations
+
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -28,13 +30,13 @@ class JobStatusResponse(BaseModel):
     status: JobStatus
     provider: str
     target_size_mm: float
-    prepared_size_mm: float | None = None
-    error: str | None = None
-    warnings: list[WarningItem] = Field(default_factory=list)
-    bbox_mm: BBoxMM | None = None
-    min_extent_mm: float | None = None
-    is_watertight: bool | None = None
-    triangle_count: int | None = None
+    prepared_size_mm: Optional[float] = None
+    error: Optional[str] = None
+    warnings: List[WarningItem] = Field(default_factory=list)
+    bbox_mm: Optional[BBoxMM] = None
+    min_extent_mm: Optional[float] = None
+    is_watertight: Optional[bool] = None
+    triangle_count: Optional[int] = None
     preview_available: bool = False
     export_3mf_available: bool = False
     export_stl_available: bool = False
