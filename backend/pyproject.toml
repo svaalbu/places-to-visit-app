@@ -1,0 +1,5 @@
+[project]
+name = "drawing-to-print-backend"
+version = "0.1.0"
+requires-python = ">=3.9"
+description = "Image-to-3D job API and printable 3MF export for Drawing to Print"
