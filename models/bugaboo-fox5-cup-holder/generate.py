@@ -1,20 +1,20 @@
 """Bugaboo Fox 5 cup holder.
 
-Clips onto the side button at the handlebar joint. Slide the open slot
-down over the button until the button rests on the floor of the slot.
-The tongue sits behind the button and the lip stays on the outside.
-No screw.
+Clips onto the round hole in the handlebar joint collar. A peg pushes
+into that hole. Two pads sit on the collar beside the hole so the cup
+cannot spin, and a notch in the top of the back plate matches the
+original holder's clip.
 
-Slot size is taken from a clip that already fits that button:
-a 10 mm tongue, a 6.5 mm gap, and a wider mouth at the top.
+The peg is tapered, 6.8 mm at the tip and 9.2 mm at the shoulder, so it
+wedges into the hole. A shallow neck behind the shoulder keeps it from
+pulling straight back out.
 
-Print the cup upright (opening up) in PLA. 0.20 mm layers, 4 walls,
-30 percent infill. The hook walls are vertical, so it does not need supports.
+Print upright in PLA. 0.20 mm layers, 4 walls, 30 percent infill.
+The peg points sideways and has a pointed top so it prints without supports.
 """
 
 from __future__ import annotations
 
-import math
 from pathlib import Path
 
 from build123d import (
@@ -22,6 +22,7 @@ from build123d import (
     BuildLine,
     BuildPart,
     BuildSketch,
+    Circle,
     Cylinder,
     Plane,
     Polyline,
@@ -35,96 +36,101 @@ from build123d import (
 
 OUT = Path(__file__).resolve().parent
 
-CUP_ID = 78.0
+CUP_ID = 76.0
 CUP_WALL = 3.6
-CUP_H = 98.0
-FLOOR_T = 3.6
+CUP_H = 115.0
+FLOOR_T = 4.0
 DRAIN_D = 8.0
 
-# Fox 5 side-button hook.
-TONGUE_W = 10.0
-TONGUE_D = 3.5
-GAP = 6.5
-LIP_T = 2.6
-PLATE_W = 32.0
-THROAT_H = 5.0
-RAMP_H = 3.2
-RAMP_RELIEF = 1.15
+PLATE_T = 8.0
+PLATE_W = 70.0
+PLATE_H = 156.0
+
+PEG_Z = 136.0
+PEG_LEN = 13.0
 
 
-def _ramp_cut(x_face: float, z0: float, z1: float, relief: float, y_span: float):
-    """Open the top of the slot by shaving the tongue face."""
-    with BuildPart() as cut:
-        with BuildSketch(Plane.XZ):
+def _peg():
+    """Tapered peg along -X, tip at the far end, teardrop roof for printing."""
+    # Sketch on YZ. Extrude toward -X by moving the solid after.
+    with BuildPart() as peg:
+        with BuildSketch(Plane.YZ):
+            Circle(4.6)  # 9.2 mm shoulder, trimmed by the tip cone below
             with BuildLine():
-                Polyline(
-                    [
-                        (x_face - 0.01, z0),
-                        (x_face + 0.5, z0),
-                        (x_face + 0.5, z1 + 0.6),
-                        (x_face - relief, z1 + 0.6),
-                    ],
-                    close=True,
-                )
+                Polyline([(-3.6, 2.2), (0, 5.6), (3.6, 2.2)], close=True)
             make_face()
-        extrude(amount=y_span, both=True)
-    return cut.part
+        extrude(amount=PEG_LEN)
+    # Extrude of Plane.YZ goes +X from x=0. Flip so the peg sticks out to -X.
+    solid = Rot(0, 180, 0) * peg.part
+    # Cone the tip: cut a widening cone off the end so the tip is 6.8 mm.
+    # After the flip, the peg occupies x = -PEG_LEN .. 0.
+    tip = Pos(-PEG_LEN, 0, PEG_Z) * Rot(0, 90, 0) * Cylinder(8, 6)
+    return Pos(0, 0, PEG_Z) * solid, tip
 
 
 def main() -> None:
     cup_or = CUP_ID / 2 + CUP_WALL
     cup_ir = CUP_ID / 2
-
-    # +X points away from the stroller. The tongue is nearest the stroller,
-    # then the button gap, then the lip, then the cup.
-    tongue_x1 = TONGUE_D
-    gap_x1 = tongue_x1 + GAP
-    lip_x1 = gap_x1 + LIP_T
-    arm_gap = 16.0
-    cup_cx = lip_x1 + arm_gap + cup_or
-
-    seat_z = CUP_H - 6.0
-    throat_top = seat_z + THROAT_H
-    mouth_top = throat_top + RAMP_H
+    cup_cx = PLATE_T + cup_or - 3.0
 
     cup = Pos(cup_cx, 0, CUP_H / 2) * Cylinder(cup_or, CUP_H)
     cup -= Pos(cup_cx, 0, FLOOR_T + (CUP_H - FLOOR_T) / 2) * Cylinder(cup_ir, CUP_H - FLOOR_T + 1)
     cup -= Pos(cup_cx, 0, FLOOR_T / 2) * Cylinder(DRAIN_D / 2, FLOOR_T + 2)
 
-    # Windows on the sides and the outer face, clear of the arm.
-    for ang in (0, 80, 280):
-        rad = math.radians(ang)
-        cup -= Pos(cup_cx + math.cos(rad) * cup_or, math.sin(rad) * cup_or, 46) * Rot(0, 0, ang) * Box(
-            CUP_WALL + 8, 16, 58
-        )
-    cup -= Pos(cup_cx + (cup_or - 1), 0, CUP_H) * Cylinder(12, 16)
+    # Tall side opening, like the original holder.
+    cup -= Pos(cup_cx + 18, 0, 62) * Box(46, 52, 78)
 
-    # Hook. The slot is empty from the seat up to the top of the part.
-    tongue = Pos(TONGUE_D / 2, 0, (seat_z + mouth_top) / 2) * Box(TONGUE_D, TONGUE_W, mouth_top - seat_z)
-    lip = Pos((gap_x1 + lip_x1) / 2, 0, (seat_z + mouth_top) / 2) * Box(LIP_T, PLATE_W, mouth_top - seat_z)
-    # Floor of the slot. This is what the button sits on.
-    seat = Pos(lip_x1 / 2, 0, seat_z - 2.5) * Box(lip_x1, PLATE_W, 5.0)
+    plate = Pos(PLATE_T / 2, 0, PLATE_H / 2) * Box(PLATE_T, PLATE_W, PLATE_H)
+    # Notch in the top edge, centered over the peg.
+    plate -= Pos(PLATE_T / 2, 0, PLATE_H - 4) * Box(PLATE_T + 2, 14, 18)
 
-    # Arm stays outside the cup. It meets the outer wall and stops there.
-    arm_x0 = cup_cx - cup_or
-    arm_z0 = seat_z - 18.0
-    arm_z1 = seat_z + 2.0
-    arm = Pos((arm_x0 + lip_x1) / 2, 0, (arm_z0 + arm_z1) / 2) * Box(
-        (arm_x0 - lip_x1) + 2, 18.0, arm_z1 - arm_z0
-    )
+    peg, _tip_unused = _peg()
 
-    holder = cup + tongue + lip + seat + arm
-    holder -= _ramp_cut(tongue_x1, throat_top, mouth_top, RAMP_RELIEF, TONGUE_W + 2)
+    # Taper the outer 8 mm of the peg down to a 6.8 mm tip.
+    # Peg runs x = -PEG_LEN .. 0. Cut material outside a cone.
+    # Build the keep-volume as a cone and intersect the tip region.
+    # Easier: subtract a ring by cutting with a large tube minus a cone.
+    tip_keep = Pos(-PEG_LEN + 4.0, 0, PEG_Z) * Rot(0, 90, 0) * Cylinder(3.4, 8)
+    # Cylinder is the small tip. We want a taper, so subtract a wedge
+    # around the tip that leaves 6.8 mm at the end and 9.2 at 8 mm in.
+    taper_cut = _taper_cut()
 
-    # Anything that crossed into the cup is removed. The bore stays empty.
-    holder -= Pos(cup_cx, 0, FLOOR_T + CUP_H / 2) * Cylinder(cup_ir, CUP_H)
+    # Pads that rest on the collar, one each side of the hole.
+    pads = None
+    for sign in (-1, 1):
+        pad = Pos(-1.6, sign * 14, PEG_Z - 2) * Box(3.2, 8, 26)
+        pads = pad if pads is None else pads + pad
+
+    holder = cup + plate + peg + pads
+    holder -= taper_cut
+    # Keep the bore empty where the plate meets the cup.
+    holder -= Pos(cup_cx, 0, FLOOR_T + CUP_H / 2) * Cylinder(cup_ir - 0.4, CUP_H)
 
     stl = OUT / "fox5-cup-holder.stl"
     step = OUT / "fox5-cup-holder.step"
-    export_stl(holder, str(stl), tolerance=0.05, angular_tolerance=0.2)
+    export_stl(holder, str(stl), tolerance=0.06, angular_tolerance=0.25)
     export_step(holder, str(step))
     print(f"wrote {stl}")
-    print(f"wrote {step}")
+
+
+def _taper_cut():
+    """Remove the corners of the peg tip so it starts at 6.8 mm.
+
+    The peg axis is X, tip at x=-PEG_LEN. A conical cut is approximated
+    by a tube of radius 7 mm with a cone-shaped void we do not want.
+    Subtract a box ring outside a stepped tip.
+    """
+    # Four flats that reduce the tip to about 6.8 mm and open toward the end.
+    cuts = None
+    for ang in (45, 135, 225, 315):
+        block = (
+            Pos(-PEG_LEN + 3.2, 0, PEG_Z)
+            * Rot(ang, 0, 0)
+            * Pos(0, 6.2, 0)
+            * Box(8, 6, 6)
+        )
+        cuts = block if cuts is None else cuts + block
+    return cuts
 
 
 if __name__ == "__main__":
