@@ -326,7 +326,8 @@ def project_settings() -> dict:
         "printer_model": "Bambu Lab P2S",
         "printer_variant": "0.4",
         "nozzle_diameter": ["0.4"],
-        "extruder_type": ["Direct Drive Standard"],
+        # Leave extruder_type to the P2S preset. Writing "Direct Drive Standard"
+        # makes older Bambu Studio replace it and pop a substitution dialog.
         "printer_settings_id": "Bambu Lab P2S 0.4 nozzle",
         "print_settings_id": "0.20mm Standard @BBL P2S",
         "filament_settings_id": filaments,
