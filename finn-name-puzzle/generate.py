@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate a wooden-style FINN name puzzle sized for a Bambu Lab P2S.
 
-The board is one piece. Each letter is a separate piece that drops into its
-own rounded slot, the same idea as a painted wooden name puzzle. Pieces are
-loose enough for a small child and for a 0.4 mm nozzle.
+The board is one piece. Each slot is that letter's outline, so F only fits
+the F hole and N only fits an N hole. The slot is 0.40 mm larger than the
+letter, which is the allowance a 0.4 mm nozzle needs for the piece to drop in.
 
 Run from this directory:
 
@@ -26,11 +26,11 @@ NAME = "FINN"
 
 # Millimetres. The P2S build volume is 256 x 256 x 256.
 TARGET_BOARD_W = 236.0
-SIDE_GAP = 2.4
-WELL_CORNER_R = 6.0
-FRAME_X = 12.5
+# How far the slot wall sits outside the letter. This is the whole fit gap.
+FIT_CLEARANCE = 0.40
+FRAME_X = 13.0
 FRAME_Y = 14.0
-DIVIDER = 9.0
+DIVIDER = 10.0
 FLOOR = 5.0
 WELL_DEPTH = 11.0
 LETTER_THICK = 15.5
@@ -38,9 +38,6 @@ BOARD_CORNER_R = 11.0
 OUTER_EDGE_R = 1.6
 TOP_SOFTEN = 0.85
 BOTTOM_LEAD = 0.30
-NOTCH_WIDTH = 28.0
-NOTCH_INTO_FRAME = 8.0
-MIN_CLEARANCE = 1.30
 BED = 256.0
 
 
@@ -79,9 +76,8 @@ def bbox_of(shape: cq.Workplane) -> cq.BoundBox:
     return shape.val().BoundingBox()
 
 
-def board_width_for(widths: list[float], gap: float) -> float:
-    wells = [w + 2 * gap for w in widths]
-    return sum(wells) + DIVIDER * (len(wells) - 1) + 2 * FRAME_X
+def board_width_for(widths: list[float]) -> float:
+    return sum(widths) + DIVIDER * (len(widths) - 1) + 2 * FRAME_X
 
 
 def choose_font_size() -> float:
@@ -92,12 +88,12 @@ def choose_font_size() -> float:
     for ch in NAME:
         bb = bbox_of(make_letter(ch, probe, 4.0))
         widths.append(bb.xlen)
-    width = board_width_for(widths, SIDE_GAP)
+    width = board_width_for(widths)
     size = probe * (TARGET_BOARD_W / width)
     # Re-measure because font hinting is not perfectly linear, then nudge.
     for _ in range(4):
         widths = [bbox_of(make_letter(ch, size, 4.0)).xlen for ch in NAME]
-        width = board_width_for(widths, SIDE_GAP)
+        width = board_width_for(widths)
         if abs(width - TARGET_BOARD_W) < 0.4:
             break
         size *= TARGET_BOARD_W / width
@@ -140,45 +136,19 @@ def soften_letter(letter: cq.Workplane) -> cq.Workplane:
     return letter
 
 
-class _NearWell(cq.Selector):
-    """Edges whose center lies on a well outline at a given height."""
-
-    def __init__(self, wells: list[tuple[float, float, float, float]], z: float, tol: float):
-        self.wells = wells
-        self.z = z
-        self.tol = tol
-
-    def filter(self, object_list):
-        found = []
-        for edge in object_list:
-            center = edge.Center()
-            if abs(center.z - self.z) > self.tol:
-                continue
-            for cx, cy, w, h in self.wells:
-                dx = abs(center.x - cx)
-                dy = abs(center.y - cy)
-                near_x = abs(dx - w / 2) <= 3.2 and dy <= h / 2 + 1.0
-                near_y = abs(dy - h / 2) <= 3.2 and dx <= w / 2 + 1.0
-                if near_x or near_y:
-                    found.append(edge)
-                    break
-        return found
-
-
-def _rounded_pocket(cx: float, cy: float, w: float, h: float, radius: float, z0: float, height: float):
-    pocket = (
-        cq.Workplane("XY")
-        .center(cx, cy)
-        .rect(w, h)
-        .extrude(height)
-        .edges("|Z")
-        .fillet(radius)
-        .translate((0, 0, z0))
-    )
+def letter_pocket(letter: cq.Workplane, clearance: float) -> cq.Workplane:
+    """A prism of the letter outline, grown by clearance on every side."""
+    wire = letter.faces("<Z").val().outerWire()
+    grown = wire.offset2D(clearance, "arc")
+    if len(grown) != 1:
+        raise SystemExit(f"letter offset produced {len(grown)} outlines")
+    pocket = cq.Workplane("XY").add(grown[0]).toPending().extrude(WELL_DEPTH + 3.0)
+    if not pocket.val().isValid() or len(pocket.solids().vals()) != 1:
+        raise SystemExit("letter pocket is not a single valid solid")
     return pocket
 
 
-def build_board(layout: dict) -> cq.Workplane:
+def build_board(layout: dict, raw_letters: list[cq.Workplane]) -> tuple[cq.Workplane, list[cq.Workplane]]:
     board_w = layout["board_w"]
     board_d = layout["board_d"]
     board_h = FLOOR + WELL_DEPTH
@@ -196,81 +166,60 @@ def build_board(layout: dict) -> cq.Workplane:
         print(f"  outer edge fillet skipped ({exc})")
 
     cutters = None
-    for well in layout["wells"]:
-        pocket = _rounded_pocket(
-            well["cx"],
-            well["cy"],
-            well["w"],
-            well["h"],
-            WELL_CORNER_R,
-            FLOOR,
-            WELL_DEPTH + 3.0,
-        )
-        # Finger notch in the front rail: wide along the board, shallow into the frame.
-        # The slot overlaps the well by about 1 mm so no sliver is left in front of the letter.
-        notch = (
-            cq.Workplane("XY")
-            .center(well["cx"], well["y0"] - (NOTCH_INTO_FRAME / 2) + 1.2)
-            .slot2D(NOTCH_WIDTH, NOTCH_INTO_FRAME, 0)
-            .extrude(WELL_DEPTH + 3.0)
-            .translate((0, 0, FLOOR))
-        )
+    pockets = []
+    for well, letter in zip(layout["wells"], raw_letters):
+        pocket = letter_pocket(letter, FIT_CLEARANCE)
+        dx, dy, _ = shift_for(letter, well, 0.0)
+        pocket = pocket.translate((dx, dy, FLOOR))
+        pockets.append(pocket)
         cutters = pocket if cutters is None else cutters.union(pocket)
-        cutters = cutters.union(notch)
 
     board = board.cut(cutters)
-
-    wells = [(w["cx"], w["cy"], w["w"], w["h"]) for w in layout["wells"]]
-    try:
-        board = board.edges(_NearWell(wells, FLOOR, 0.25)).fillet(0.8)
-    except Exception as exc:
-        print(f"  well floor fillet skipped ({exc})")
-    try:
-        board = board.edges(_NearWell(wells, board_h, 0.35)).fillet(0.7)
-    except Exception as exc:
-        print(f"  well rim fillet skipped ({exc})")
-    return board
+    return board, pockets
 
 
-def layout_for(raw_letters: list[cq.Workplane], gap: float) -> dict:
+def layout_for(raw_letters: list[cq.Workplane]) -> dict:
     boxes = [bbox_of(letter) for letter in raw_letters]
     letter_h = max(bb.ylen for bb in boxes)
-    well_h = letter_h + 2 * gap
     y0 = FRAME_Y
     wells = []
     x = FRAME_X
     for bb in boxes:
-        well_w = bb.xlen + 2 * gap
         wells.append(
             {
                 "x0": x,
                 "y0": y0,
-                "w": well_w,
-                "h": well_h,
-                "cx": x + well_w / 2,
-                "cy": y0 + well_h / 2,
+                "w": bb.xlen,
+                "h": letter_h,
+                "cx": x + bb.xlen / 2,
+                "cy": y0 + letter_h / 2,
                 "letter_bb": bb,
             }
         )
-        x += well_w + DIVIDER
+        x += bb.xlen + DIVIDER
     board_w = x - DIVIDER + FRAME_X
-    board_d = FRAME_Y + well_h + FRAME_Y
+    board_d = FRAME_Y + letter_h + FRAME_Y
     return {
         "wells": wells,
         "board_w": board_w,
         "board_d": board_d,
         "letter_h": letter_h,
-        "well_h": well_h,
-        "gap": gap,
+        "gap": FIT_CLEARANCE,
     }
 
 
-def place_letter(letter: cq.Workplane, well: dict, z: float) -> cq.Workplane:
-    """Center a letter in its well and sit it on z."""
+def shift_for(letter: cq.Workplane, well: dict, z: float) -> tuple[float, float, float]:
+    """Move a letter so it is centered on its slot and sitting on z."""
     bb = bbox_of(letter)
-    x = well["cx"] - bb.xlen / 2 - bb.xmin
-    y = well["cy"] - bb.ylen / 2 - bb.ymin
-    return letter.translate((x, y, z - bb.zmin))
+    return (
+        well["cx"] - bb.xlen / 2 - bb.xmin,
+        well["cy"] - bb.ylen / 2 - bb.ymin,
+        z - bb.zmin,
+    )
+
+
+def place_letter(letter: cq.Workplane, well: dict, z: float) -> cq.Workplane:
+    return letter.translate(shift_for(letter, well, z))
 
 
 def min_distance(a: cq.Shape, b: cq.Shape) -> float:
@@ -447,16 +396,21 @@ def render(board, placed, lifted_index: int, path: Path, kind: str) -> None:
     ren.AddActor(_actor(board, COLORS["board"], 0.12))
     keys = ["F", "I", "N1", "N2"]
     for i, letter in enumerate(placed):
+        if kind == "holes":
+            continue
+        if i == lifted_index and kind == "top":
+            continue
         shape = letter
         if i == lifted_index and kind == "angle":
-            shape = letter.translate((0, 6, 26))
+            # Set the piece beside its hole so the matching cavity stays visible.
+            shape = letter.translate((55, 18, 18))
         ren.AddActor(_actor(shape, COLORS[keys[i]], 0.28))
 
     win = vtk.vtkRenderWindow()
     win.SetOffScreenRendering(1)
     win.SetMultiSamples(8)
     win.AddRenderer(ren)
-    win.SetSize(1800, 1100 if kind == "angle" else 900)
+    win.SetSize(1800, 1100 if kind != "top" else 900)
 
     ren.ResetCamera()
     cam = ren.GetActiveCamera()
@@ -473,14 +427,15 @@ def render(board, placed, lifted_index: int, path: Path, kind: str) -> None:
         cam.SetParallelScale(half_height)
     else:
         # Fit a front view, then orbit so the whole board stays in frame.
+        # "holes" is steeper so the letter-shaped cavities read clearly.
         cam.SetViewUp(0, 0, 1)
         cam.SetFocalPoint(fx, fy, 6)
         cam.SetPosition(fx, fy - 800, 6)
         ren.ResetCamera()
-        cam.Azimuth(16)
-        cam.Elevation(24)
+        cam.Azimuth(18 if kind == "angle" else 12)
+        cam.Elevation(42 if kind == "angle" else 58)
         cam.OrthogonalizeViewUp()
-        cam.Zoom(1.45)
+        cam.Zoom(1.28 if kind == "angle" else 1.35)
     ren.ResetCameraClippingRange()
 
     key = vtk.vtkLight()
@@ -580,38 +535,42 @@ def main() -> None:
         no_enclosed_counters(letter, ch)
         assert_single_piece(letter, f"raw {ch}")
 
-    gap = SIDE_GAP
-    board = None
-    layout = None
-    placed_raw = None
-    for attempt in range(5):
-        layout = layout_for(raw, gap)
-        print(
-            f"  attempt {attempt + 1}: gap {gap:.2f} mm, "
-            f"board {layout['board_w']:.1f} x {layout['board_d']:.1f} mm"
-        )
-        if layout["board_w"] > BED - 8 or layout["board_d"] > BED - 8:
-            raise SystemExit("Board does not fit the P2S bed with margin")
-        print("  building board...")
-        board = build_board(layout)
-        assert_single_piece(board, "board")
-        placed_raw = [place_letter(letter, well, FLOOR) for letter, well in zip(raw, layout["wells"])]
-        clearances = []
-        for ch, letter in zip(NAME, placed_raw):
-            overlap = solid_volume(board.intersect(letter))
-            if overlap > 0.01:
-                print(f"  {ch} intersects the board by {overlap:.3f} mm^3")
-                clearances.append(0.0)
+    layout = layout_for(raw)
+    print(f"  board {layout['board_w']:.1f} x {layout['board_d']:.1f} mm")
+    if layout["board_w"] > BED - 8 or layout["board_d"] > BED - 8:
+        raise SystemExit("Board does not fit the P2S bed with margin")
+    print("  building letter-shaped slots...")
+    board, pockets = build_board(layout, raw)
+    assert_single_piece(board, "board")
+    for index in range(len(pockets) - 1):
+        wood = min_distance(pockets[index].val(), pockets[index + 1].val())
+        print(f"  wood between slot {index + 1} and {index + 2}: {wood:.2f} mm")
+        if wood < 4.0:
+            raise SystemExit("letter slots break into each other")
+
+    placed_raw = [place_letter(letter, well, FLOOR) for letter, well in zip(raw, layout["wells"])]
+    clearances = []
+    for ch, letter in zip(NAME, placed_raw):
+        overlap = solid_volume(board.intersect(letter))
+        if overlap > 0.05:
+            raise SystemExit(f"{ch} intersects its own slot by {overlap:.3f} mm^3")
+        gap_mm = side_clearance(letter, board, layout["board_w"], layout["board_d"])
+        clearances.append(gap_mm)
+        print(f"  {ch} fits its slot with {gap_mm:.2f} mm of room")
+        if not 0.25 <= gap_mm <= 0.60:
+            raise SystemExit(f"{ch} slot is not a close fit ({gap_mm:.2f} mm)")
+
+    # A letter must collide with every slot that is not its own shape.
+    # The two N pieces share a shape, so either N fits either N slot.
+    for piece_i, piece_ch in enumerate(NAME):
+        for slot_i, slot_ch in enumerate(NAME):
+            if piece_ch == slot_ch:
                 continue
-            gap_mm = side_clearance(letter, board, layout["board_w"], layout["board_d"])
-            clearances.append(gap_mm)
-            print(f"  {ch} side clearance {gap_mm:.2f} mm")
-        if min(clearances) >= MIN_CLEARANCE:
-            break
-        gap += 0.45
-        print("  clearance too tight, opening the slots")
-    else:
-        raise SystemExit("Could not reach a safe slot clearance")
+            moved = place_letter(raw[piece_i], layout["wells"][slot_i], FLOOR)
+            clash = solid_volume(board.intersect(moved))
+            print(f"  {piece_ch} in the {slot_ch} slot clashes by {clash:.0f} mm^3")
+            if clash < 200:
+                raise SystemExit(f"{piece_ch} fits the {slot_ch} slot")
 
     print("Softening letter edges...")
     letters = []
@@ -702,7 +661,8 @@ def main() -> None:
     print("Rendering previews...")
     render(board, placed, lifted_index=3, path=PREVIEW_DIR / "finn_puzzle_angle.png", kind="angle")
     render(board, placed, lifted_index=-1, path=PREVIEW_DIR / "finn_puzzle_seated.png", kind="angle")
-    render(board, placed, lifted_index=-1, path=PREVIEW_DIR / "finn_puzzle_top.png", kind="top")
+    render(board, placed, lifted_index=3, path=PREVIEW_DIR / "finn_puzzle_top.png", kind="top")
+    render(board, placed, lifted_index=-1, path=PREVIEW_DIR / "finn_puzzle_holes.png", kind="holes")
 
     def grams(shape: cq.Workplane, shell_fraction: float) -> float:
         # PLA is about 1.24 g/cm^3. shell_fraction is a slicer estimate, not a solid.
@@ -716,7 +676,8 @@ def main() -> None:
         "well_depth": WELL_DEPTH,
         "letter_thick": LETTER_THICK,
         "proud": LETTER_THICK - WELL_DEPTH,
-        "gap": gap,
+        "fit_clearance": FIT_CLEARANCE,
+        "measured_clearance": clearances,
         "floor": FLOOR,
         "board_g": grams(board, 0.45),
         "letters_g": [grams(letter, 0.55) for letter in letters],

@@ -1,12 +1,12 @@
 # FINN name puzzle
 
-A name puzzle for a Bambu Lab P2S, in the style of a painted wooden letter board. The board is one piece. F, I, N, and N are separate pieces that drop into their own slots.
+A name puzzle for a Bambu Lab P2S, in the style of a painted wooden letter board. The board is one piece. Each slot is the outline of that letter, so the F only fits the F hole and an N only fits an N hole.
 
 ![FINN seated in the board](preview/finn_puzzle_seated.png)
 
-The near edge of each slot has a finger scoop so a small hand can lift the letter out.
+![Yellow N lifted off its matching hole](preview/finn_puzzle_angle.png)
 
-![Yellow N lifted out of its slot](preview/finn_puzzle_angle.png)
+![Empty letter-shaped holes](preview/finn_puzzle_holes.png)
 
 ## Print this
 
@@ -47,7 +47,7 @@ Start from the Generic PLA preset for the P2S, then use:
 
 ### Fit
 
-The letters are loose on purpose. The tightest gap is about **1.6 mm** (the F), so a child can drop them in, and a little first-layer squish still fits. Each letter sits about **4.5 mm** above the board.
+Each hole is that letter, **0.40 mm** larger on every side. That is the gap a 0.4 mm nozzle needs so the piece still drops in. The walls follow the letter, including the open side of the F and the diagonal of the N. F will not go in the I or N holes. Either N fits either N hole. Each letter sits about **4.5 mm** above the board, so it can be pinched out.
 
 If a piece feels tight, scale **that letter** to 99% in the slicer. Leave the board at 100%.
 
