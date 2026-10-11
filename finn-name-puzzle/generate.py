@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a wooden-style FINN name puzzle sized for a Bambu Lab P2S.
+"""Generate a modern FINN name puzzle sized for a Bambu Lab P2S.
 
 The board is one piece. Each slot is that letter's outline, so F only fits
 the F hole and N only fits an N hole. The slot is 0.40 mm larger than the
@@ -12,55 +12,57 @@ Run from this directory:
 
 from __future__ import annotations
 
+import struct
 import zipfile
+from collections import Counter
 from pathlib import Path
 from xml.sax.saxutils import escape
 
 import cadquery as cq
 
 ROOT = Path(__file__).resolve().parent
-FONT = ROOT / "fonts" / "LilitaOne-Regular.ttf"
+FONT = ROOT / "fonts" / "Outfit-ExtraBold.ttf"
 STL_DIR = ROOT / "stl"
 PREVIEW_DIR = ROOT / "preview"
 NAME = "FINN"
 
 # Millimetres. The P2S build volume is 256 x 256 x 256.
-TARGET_BOARD_W = 236.0
+TARGET_BOARD_W = 244.0
 # How far the slot wall sits outside the letter. This is the whole fit gap.
 FIT_CLEARANCE = 0.40
-FRAME_X = 13.0
-FRAME_Y = 14.0
-DIVIDER = 10.0
-FLOOR = 5.0
-WELL_DEPTH = 11.0
-LETTER_THICK = 15.5
-BOARD_CORNER_R = 11.0
-OUTER_EDGE_R = 1.6
-TOP_SOFTEN = 0.85
-BOTTOM_LEAD = 0.30
+# The geometric I is a thin stem. Widen it so it matches the other pieces.
+I_WIDTH_RATIO = 0.76
+FRAME_X = 16.0
+FRAME_Y = 16.0
+DIVIDER = 12.0
+FLOOR = 4.5
+WELL_DEPTH = 9.0
+LETTER_THICK = 13.0
+BOARD_CORNER_R = 14.0
+OUTER_EDGE_R = 1.0
 BED = 256.0
 
 
 COLORS = {
-    "board": (0.91, 0.78, 0.58),
-    "F": (0.86, 0.22, 0.18),
-    "I": (0.18, 0.42, 0.86),
-    "N1": (0.22, 0.62, 0.30),
-    "N2": (0.95, 0.78, 0.12),
+    "board": (0.91, 0.89, 0.84),
+    "F": (0.89, 0.31, 0.23),
+    "I": (0.12, 0.31, 0.54),
+    "N1": (0.17, 0.42, 0.29),
+    "N2": (0.89, 0.64, 0.10),
 }
 
 HEX = {
-    "board": "#E8C794",
-    "F": "#DB382E",
-    "I": "#2E6BDB",
-    "N1": "#389E4D",
-    "N2": "#F2C71F",
+    "board": "#E8E3D6",
+    "F": "#E34F3A",
+    "I": "#1E4F8A",
+    "N1": "#2C6B4A",
+    "N2": "#E2A31A",
 }
 
 
 def make_letter(ch: str, size: float, thickness: float) -> cq.Workplane:
-    """Chunky uppercase letter, sitting on the XY plane."""
-    return cq.Workplane("XY").text(
+    """Geometric uppercase letter, sitting on the XY plane as one solid."""
+    letter = cq.Workplane("XY").text(
         ch,
         size,
         thickness,
@@ -70,6 +72,13 @@ def make_letter(ch: str, size: float, thickness: float) -> cq.Workplane:
         halign="left",
         valign="bottom",
     )
+    parts = letter.solids().vals()
+    if len(parts) == 1:
+        return letter
+    fused = parts[0]
+    for part in parts[1:]:
+        fused = fused.fuse(part)
+    return cq.Workplane("XY").newObject([fused])
 
 
 def bbox_of(shape: cq.Workplane) -> cq.BoundBox:
@@ -80,66 +89,66 @@ def board_width_for(widths: list[float]) -> float:
     return sum(widths) + DIVIDER * (len(widths) - 1) + 2 * FRAME_X
 
 
+def letter_widths(size: float) -> list[float]:
+    """Widths used for layout. The I is widened to I_WIDTH_RATIO of the F."""
+    measured = {}
+    for ch in "FN":
+        measured[ch] = bbox_of(make_letter(ch, size, 4.0)).xlen
+    measured["I"] = measured["F"] * I_WIDTH_RATIO
+    return [measured[ch] for ch in NAME]
+
+
 def choose_font_size() -> float:
     """Pick a font size whose board lands just under the bed limit."""
-    # Cap height scales with the requested size. Probe once, then scale.
     probe = 100.0
-    widths = []
-    for ch in NAME:
-        bb = bbox_of(make_letter(ch, probe, 4.0))
-        widths.append(bb.xlen)
-    width = board_width_for(widths)
+    width = board_width_for(letter_widths(probe))
     size = probe * (TARGET_BOARD_W / width)
-    # Re-measure because font hinting is not perfectly linear, then nudge.
     for _ in range(4):
-        widths = [bbox_of(make_letter(ch, size, 4.0)).xlen for ch in NAME]
-        width = board_width_for(widths)
+        width = board_width_for(letter_widths(size))
         if abs(width - TARGET_BOARD_W) < 0.4:
             break
         size *= TARGET_BOARD_W / width
     return size
 
 
-def _accept(candidate: cq.Workplane, fallback: cq.Workplane) -> cq.Workplane:
-    try:
-        solid = candidate.val()
-        if solid.isValid() and len(candidate.solids().vals()) == 1 and solid.Volume() > 1000:
-            return candidate
-    except Exception:
-        pass
-    return fallback
+def make_i(f_box: cq.BoundBox) -> cq.Workplane:
+    """A wide geometric I, the same height and baseline as the F."""
+    width = f_box.xlen * I_WIDTH_RATIO
+    height = f_box.ylen
+    return (
+        cq.Workplane("XY")
+        .center(width / 2, f_box.ymin + height / 2)
+        .rect(width, height)
+        .extrude(LETTER_THICK)
+    )
 
 
 def soften_letter(letter: cq.Workplane) -> cq.Workplane:
-    """Break the sharp top edge when the font outline allows it.
+    """Keep the geometric edges crisp.
 
-    Lilita One is already rounded in plan. A failed fillet must not replace
-    the letter with a broken solid.
+    A fillet on these outlines either fails or turns one letter into a
+    different shape from the others. The flat faces are the modern look.
     """
-    original = letter
-    try:
-        letter = _accept(letter.faces(">Z").edges().fillet(TOP_SOFTEN), original)
-    except Exception as exc:
-        print(f"  top fillet skipped ({exc})")
-        letter = original
-    if letter is original:
-        try:
-            letter = _accept(original.faces(">Z").edges().chamfer(0.45), original)
-        except Exception as exc:
-            print(f"  top chamfer skipped ({exc})")
-            letter = original
-    try:
-        softened = letter.faces("<Z").edges().chamfer(BOTTOM_LEAD)
-        letter = _accept(softened, letter)
-    except Exception as exc:
-        print(f"  bottom lead-in skipped ({exc})")
     return letter
 
 
 def letter_pocket(letter: cq.Workplane, clearance: float) -> cq.Workplane:
-    """A prism of the letter outline, grown by clearance on every side."""
-    wire = letter.faces("<Z").val().outerWire()
-    grown = wire.offset2D(clearance, "arc")
+    """A prism of the full letter outline, grown by clearance on every side."""
+    bounds = bbox_of(letter)
+    slab = (
+        cq.Workplane("XY")
+        .box(bounds.xlen + 20, bounds.ylen + 20, 0.4, centered=(True, True, True))
+        .translate(
+            (
+                (bounds.xmin + bounds.xmax) / 2,
+                (bounds.ymin + bounds.ymax) / 2,
+                bounds.zmin + min(2.0, bounds.zlen / 2),
+            )
+        )
+    )
+    outline = letter.intersect(slab).faces(">Z").val().outerWire()
+    outline = outline.translate((0, 0, -outline.Center().z))
+    grown = outline.offset2D(clearance, "arc")
     if len(grown) != 1:
         raise SystemExit(f"letter offset produced {len(grown)} outlines")
     pocket = cq.Workplane("XY").add(grown[0]).toPending().extrude(WELL_DEPTH + 3.0)
@@ -261,10 +270,10 @@ def assert_single_piece(shape: cq.Workplane, label: str) -> None:
 
 
 def no_enclosed_counters(letter: cq.Workplane, label: str) -> None:
-    """F, I and N are solid strokes. A hole would mean the font came out wrong."""
-    wires = letter.faces("<Z").wires().vals()
-    if len(wires) != 1:
-        raise SystemExit(f"{label} bottom has {len(wires)} wires; expected a solid letter")
+    """F, I and N are solid strokes. A hole through a letter would trap the piece."""
+    for face in letter.faces("<Z").vals():
+        if len(face.innerWires()) != 0:
+            raise SystemExit(f"{label} has a hole through it")
 
 
 def to_bed(shape: cq.Workplane) -> cq.Workplane:
@@ -272,15 +281,48 @@ def to_bed(shape: cq.Workplane) -> cq.Workplane:
     return shape.translate((-bb.xmin, -bb.ymin, -bb.zmin))
 
 
-def tessellate(shape: cq.Workplane, tolerance: float = 0.08):
-    return shape.val().tessellate(tolerance, 0.08)
+def stl_mesh(path: Path) -> tuple[list[tuple[float, float, float]], list[tuple[int, int, int]]]:
+    """Load a binary STL and weld vertices.
+
+    CadQuery's raw tessellation leaves cracks. The STL exporter welds them,
+    and Bambu Studio reports those cracks as open edges.
+    """
+    data = path.read_bytes()
+    count = struct.unpack_from("<I", data, 80)[0]
+    index: dict[tuple[float, float, float], int] = {}
+    verts: list[tuple[float, float, float]] = []
+    tris: list[tuple[int, int, int]] = []
+    offset = 84
+    for _ in range(count):
+        values = struct.unpack_from("<12fH", data, offset)
+        ids = []
+        for corner in range(3):
+            key = tuple(round(values[3 + 3 * corner + axis], 4) for axis in range(3))
+            vertex_id = index.get(key)
+            if vertex_id is None:
+                vertex_id = len(verts)
+                index[key] = vertex_id
+                verts.append(key)
+            ids.append(vertex_id)
+        if len(set(ids)) == 3:
+            tris.append((ids[0], ids[1], ids[2]))
+        offset += 50
+    return verts, tris
+
+
+def boundary_edge_count(tris: list[tuple[int, int, int]]) -> int:
+    edges: Counter[tuple[int, int]] = Counter()
+    for a, b, c in tris:
+        for edge in ((a, b), (b, c), (c, a)):
+            edges[tuple(sorted(edge))] += 1
+    return sum(1 for count in edges.values() if count != 2)
 
 
 def write_3mf(path: Path, objects: list[dict]) -> None:
     """A plain 3MF Bambu Studio can import. Each part is its own object."""
 
     def mesh_xml(verts, tris, pid: int, pindex: int) -> str:
-        v_lines = [f'<vertex x="{v.x:.4f}" y="{v.y:.4f}" z="{v.z:.4f}"/>' for v in verts]
+        v_lines = [f'<vertex x="{x:.4f}" y="{y:.4f}" z="{z:.4f}"/>' for x, y, z in verts]
         t_lines = [
             f'<triangle v1="{a}" v2="{b}" v3="{c}" pid="{pid}" p1="{pindex}"/>'
             for a, b, c in tris
@@ -530,7 +572,16 @@ def main() -> None:
     font_size = choose_font_size()
     print(f"  font size {font_size:.2f}")
 
-    raw = [make_letter(ch, font_size, LETTER_THICK) for ch in NAME]
+    f_letter = make_letter("F", font_size, LETTER_THICK)
+    f_box = bbox_of(f_letter)
+    raw = []
+    for ch in NAME:
+        if ch == "I":
+            raw.append(make_i(f_box))
+        elif ch == "F":
+            raw.append(f_letter)
+        else:
+            raw.append(make_letter(ch, font_size, LETTER_THICK))
     for ch, letter in zip(NAME, raw):
         no_enclosed_counters(letter, ch)
         assert_single_piece(letter, f"raw {ch}")
@@ -590,11 +641,13 @@ def main() -> None:
         proud = bb.zmax - (FLOOR + WELL_DEPTH)
         print(f"  {ch} sits {proud:.2f} mm above the board")
 
-    # Pieces must be larger than the US small-parts cylinder (31.7 mm diameter).
+    # The small-parts cylinder is 31.7 mm across and 57.1 mm deep. A piece with
+    # any side longer than 57.1 mm cannot fit inside it.
     for ch, letter in zip(NAME, letters):
         bb = bbox_of(letter)
-        if min(bb.xlen, bb.ylen) < 32 or max(bb.xlen, bb.ylen) < 58:
-            raise SystemExit(f"{ch} is small for a toddler toy: {bb.xlen:.1f} x {bb.ylen:.1f}")
+        longest = max(bb.xlen, bb.ylen, bb.zlen)
+        if longest <= 57.1:
+            raise SystemExit(f"{ch} is small for a toddler toy: {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f}")
 
     print("Exporting STL...")
     STL_DIR.mkdir(parents=True, exist_ok=True)
@@ -612,8 +665,8 @@ def main() -> None:
     for path in [stl_board, *stl_letters.values()]:
         tris, boundary = mesh_is_closed(path)
         print(f"  {path.name}: {tris} triangles, {boundary} open edges")
-        if tris < 100 or boundary != 0:
-            raise SystemExit(f"{path.name} is not a closed mesh")
+        if tris < 12 or boundary != 0:
+            raise SystemExit(f"{path.name} is not a closed mesh ({tris} triangles, {boundary} open edges)")
 
     print("Writing 3MF plate...")
     bed_letters = [to_bed(letter) for letter in letters]
@@ -621,38 +674,40 @@ def main() -> None:
     # Lay the board behind the letters, everything in the positive quadrant.
     letter_depths = [bbox_of(letter).ylen for letter in bed_letters]
     row_h = max(letter_depths)
-    cursor = 6.0
+    cursor = 4.0
     letter_pos = []
     for letter in bed_letters:
         bb = bbox_of(letter)
-        letter_pos.append((cursor, 6.0 + (row_h - bb.ylen) / 2, 0.0))
+        letter_pos.append((cursor, 4.0 + (row_h - bb.ylen) / 2, 0.0))
         cursor += bb.xlen + 8.0
     board_bb = bbox_of(bed_board)
-    board_pos = (6.0, 6.0 + row_h + 12.0, 0.0)
-    plate_w = max(board_pos[0] + board_bb.xlen, cursor) + 6
-    plate_d = board_pos[1] + board_bb.ylen + 6
-    if plate_w > BED or plate_d > BED:
+    board_pos = (4.0, 4.0 + row_h + 12.0, 0.0)
+    plate_w = max(board_pos[0] + board_bb.xlen, cursor - 8.0)
+    plate_d = board_pos[1] + board_bb.ylen
+    if plate_w > BED - 4 or plate_d > BED - 4:
         raise SystemExit(f"Plate layout is {plate_w:.1f} x {plate_d:.1f}, over the bed")
 
     names = ["Letter F", "Letter I", "Letter N (green)", "Letter N (yellow)"]
     hexes = [HEX["F"], HEX["I"], HEX["N1"], HEX["N2"]]
-    materials = ["PLA red", "PLA blue", "PLA green", "PLA yellow"]
-    objects = [
-        {
-            "name": "Board",
-            "material": "PLA wood or tan",
-            "hex": HEX["board"],
-            "tess": tessellate(bed_board, 0.08),
-            "pos": board_pos,
-        }
-    ]
-    for name, material, hx, letter, pos in zip(names, materials, hexes, bed_letters, letter_pos):
+    materials = ["PLA coral", "PLA navy", "PLA forest", "PLA gold"]
+    stl_paths = [stl_board, stl_letters["F"], stl_letters["I"], stl_letters["N"], stl_letters["N"]]
+    positions = [board_pos, *letter_pos]
+    object_names = ["Board", *names]
+    object_materials = ["PLA bone", *materials]
+    object_hex = [HEX["board"], *hexes]
+    objects = []
+    for name, material, hx, path, pos in zip(object_names, object_materials, object_hex, stl_paths, positions):
+        verts, tris = stl_mesh(path)
+        open_edges = boundary_edge_count(tris)
+        print(f"  3MF {name}: {len(tris)} triangles, {open_edges} open edges")
+        if open_edges != 0:
+            raise SystemExit(f"{name} mesh is not closed")
         objects.append(
             {
                 "name": name,
                 "material": material,
                 "hex": hx,
-                "tess": tessellate(letter, 0.08),
+                "tess": (verts, tris),
                 "pos": pos,
             }
         )
