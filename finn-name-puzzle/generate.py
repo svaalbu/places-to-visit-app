@@ -34,9 +34,11 @@ FIT_CLEARANCE = 0.40
 FRAME_X = 13.0
 FRAME_Y = 14.0
 DIVIDER = 10.0
-FLOOR = 5.0
-WELL_DEPTH = 11.0
-LETTER_THICK = 15.5
+FLOOR = 3.5
+WELL_DEPTH = 7.0
+LETTER_THICK = 11.0
+# Lilita One draws a narrow F. The arms are stretched so the F sits near the N.
+F_TO_N_WIDTH = 0.90
 BOARD_CORNER_R = 11.0
 OUTER_EDGE_R = 1.6
 TOP_SOFTEN = 0.85
@@ -75,6 +77,67 @@ def make_letter(ch: str, size: float, thickness: float) -> cq.Workplane:
     )
 
 
+def _stem_right(letter: cq.Workplane) -> float:
+    """Right edge of the F's upright, taken where the arms have not started."""
+    bb = bbox_of(letter)
+    best = None
+    for frac in (0.08, 0.14, 0.20, 0.26):
+        y = bb.ymin + bb.ylen * frac
+        clip = (
+            cq.Workplane("XY")
+            .box(bb.xlen + 40, 0.5, bb.zlen + 4, centered=(True, True, True))
+            .translate((bb.center.x, y, bb.center.z))
+        )
+        solids = letter.intersect(clip).solids().vals()
+        if len(solids) != 1:
+            continue
+        xmax = solids[0].BoundingBox().xmax
+        if best is None or xmax < best:
+            best = xmax
+    if best is None:
+        raise SystemExit("could not find the upright of F")
+    return best
+
+
+def widen_f(letter: cq.Workplane, target_width: float) -> cq.Workplane:
+    """Lengthen the arms of F without fattening the upright."""
+    bb = bbox_of(letter)
+    if bb.xlen >= target_width - 0.2:
+        return letter
+    stem = _stem_right(letter)
+    arm = bb.xmax - stem
+    if arm < 2.0:
+        raise SystemExit("F has almost no arm to widen")
+    scale = ((bb.xmin + target_width) - stem) / arm
+    cut_x = stem - 0.4
+    right_box = (
+        cq.Workplane("XY")
+        .box(400, 400, bb.zlen + 20, centered=(True, True, True))
+        .translate((cut_x + 200, bb.center.y, bb.center.z))
+    )
+    right = letter.intersect(right_box)
+    left = letter.cut(right_box)
+    matrix = cq.Matrix(
+        [
+            [scale, 0, 0, stem * (1 - scale)],
+            [0, 1, 0, 0],
+            [0, 0, 1, 0],
+        ]
+    )
+    stretched = cq.Workplane(obj=right.val().transformGeometry(matrix))
+    widened = left.union(stretched)
+    if len(widened.solids().vals()) != 1 or not widened.val().isValid():
+        raise SystemExit("widened F is not a single solid")
+    return widened
+
+
+def shape_letter(ch: str, size: float, thickness: float, n_width: float) -> cq.Workplane:
+    letter = make_letter(ch, size, thickness)
+    if ch == "F":
+        letter = widen_f(letter, F_TO_N_WIDTH * n_width)
+    return letter
+
+
 def bbox_of(shape: cq.Workplane) -> cq.BoundBox:
     return shape.val().BoundingBox()
 
@@ -87,16 +150,16 @@ def choose_font_size() -> float:
     """Pick a font size whose board lands just under the bed limit."""
     # Cap height scales with the requested size. Probe once, then scale.
     probe = 100.0
-    widths = []
-    for ch in NAME:
-        bb = bbox_of(make_letter(ch, probe, 4.0))
-        widths.append(bb.xlen)
-    width = board_width_for(widths)
+
+    def widths_at(size: float) -> list[float]:
+        n_width = bbox_of(make_letter("N", size, 4.0)).xlen
+        return [bbox_of(shape_letter(ch, size, 4.0, n_width)).xlen for ch in NAME]
+
+    width = board_width_for(widths_at(probe))
     size = probe * (TARGET_BOARD_W / width)
     # Re-measure because font hinting is not perfectly linear, then nudge.
     for _ in range(4):
-        widths = [bbox_of(make_letter(ch, size, 4.0)).xlen for ch in NAME]
-        width = board_width_for(widths)
+        width = board_width_for(widths_at(size))
         if abs(width - TARGET_BOARD_W) < 0.4:
             break
         size *= TARGET_BOARD_W / width
@@ -140,8 +203,20 @@ def soften_letter(letter: cq.Workplane) -> cq.Workplane:
 
 
 def letter_pocket(letter: cq.Workplane, clearance: float) -> cq.Workplane:
-    """A prism of the letter outline, grown by clearance on every side."""
-    wire = letter.faces("<Z").val().outerWire()
+    """A prism of the letter outline, grown by clearance on every side.
+
+    A horizontal slice is used instead of the bottom face. The widened F
+    has a seam on the bottom face whose wire sits inside the solid.
+    """
+    bb = bbox_of(letter)
+    slab = (
+        cq.Workplane("XY")
+        .box(bb.xlen + 30, bb.ylen + 30, 0.2, centered=(True, True, True))
+        .translate((bb.center.x, bb.center.y, bb.zmin + 1.0))
+    )
+    section = letter.intersect(slab)
+    wire = section.faces(">Z").val().outerWire()
+    wire = wire.translate((0, 0, -wire.Center().z))
     grown = wire.offset2D(clearance, "arc")
     if len(grown) != 1:
         raise SystemExit(f"letter offset produced {len(grown)} outlines")
@@ -655,7 +730,9 @@ def main() -> None:
     font_size = choose_font_size()
     print(f"  font size {font_size:.2f}")
 
-    raw = [make_letter(ch, font_size, LETTER_THICK) for ch in NAME]
+    n_width = bbox_of(make_letter("N", font_size, LETTER_THICK)).xlen
+    raw = [shape_letter(ch, font_size, LETTER_THICK, n_width) for ch in NAME]
+    print(f"  F is {bbox_of(raw[0]).xlen:.1f} mm wide, N is {bbox_of(raw[2]).xlen:.1f} mm")
     for ch, letter in zip(NAME, raw):
         no_enclosed_counters(letter, ch)
         assert_single_piece(letter, f"raw {ch}")
