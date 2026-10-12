@@ -74,7 +74,7 @@ The two pieces together are one board of **397.2 × 93.3 × 10.5 mm**. Printed s
 | Piece | Size (mm) |
 | --- | --- |
 | Board VIC | 205.2 × 93.3 × 10.5 |
-| Board TOR | 215.2 × 93.3 × 10.5 |
+| Board TOR | 215.1 × 93.3 × 10.5 |
 | V | 58.1 × 63.8 × 11.0 |
 | I | 35.8 × 63.6 × 11.0 |
 | C | 45.8 × 65.3 × 11.0 |

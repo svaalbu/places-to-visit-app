@@ -757,8 +757,8 @@ def export_stl(shape: cq.Workplane, path: Path, tolerance: float, angular: float
     cq.exporters.export(shape, str(path), tolerance=tolerance, angularTolerance=angular)
 
 
-def _fits_on_plate(origin: tuple[float, float], size: tuple[float, float], plate: int) -> None:
-    x0, y0 = origin
+def _fits_on_plate(origin: tuple[float, float, float], size: tuple[float, float], plate: int) -> None:
+    x0, y0, _z = origin
     w, h = size
     stride = 0.0 if plate == 1 else PLATE_STRIDE
     local_x = x0 - stride
