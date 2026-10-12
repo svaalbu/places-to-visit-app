@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Generate a wooden-style VICTOR name puzzle sized for a Bambu Lab P2S.
 
-VICTOR at the same letter size as the printed FINN puzzle is about 400 mm
+VICTOR at the same letter size as the printed FINN puzzle is about 361 mm
 long, so it does not fit the 256 mm bed in one piece. Shrinking it until it
 does would make the I small enough to fit in a small-parts cylinder. The
-board is therefore two pieces, VIC and TOR, on one row. A chunky key between
-C and T keeps them from pulling apart sideways. Slide the key down into the
+board is therefore two pieces, VIC and TOR, on one row. The wood between
+every pair of letters is the same. The key hangs on the bottom edge, under
+the seam, so it does not push C and T apart. Slide the key down into the
 socket, then glue the seam if the board should be picked up as one piece.
 
 Each slot is that letter's outline. O and R keep their counters, so the
@@ -19,7 +20,6 @@ Run from this directory:
 from __future__ import annotations
 
 import json
-import math
 import struct
 import zipfile
 from collections import Counter
@@ -43,7 +43,6 @@ FONT_SIZE = 90.874509
 FIT_CLEARANCE = 0.40
 FRAME_X = 13.0
 FRAME_Y = 14.0
-DIVIDER = 10.0
 FLOOR = 3.5
 WELL_DEPTH = 7.0
 LETTER_THICK = 11.0
@@ -55,14 +54,17 @@ BED = 256.0
 # Bambu Studio lays plates on a grid of bed * (1 + 1/5). Plate 2 starts here.
 PLATE_STRIDE = BED * 1.2
 
-# Puzzle key between C and T. The neck is narrower than the bulb, so the
-# halves cannot pull apart sideways. They slide together along Z.
+# Wood between neighboring slots. Every pair, including C and T, uses this.
+LETTER_GAP = 10.0
+# The key hangs below the bottom edge. The neck is narrower than the bulb,
+# so the halves cannot pull apart sideways. They slide together along Z.
 JOINT_CLEARANCE = 0.35
-MALE_MARGIN = 9.0
-FEMALE_MARGIN = 9.0
-NECK_W = 16.0
-NECK_LEN = 5.0
-BULB_R = 11.0
+KEY_WALL = 3.0
+KEY_WOOD = 5.0
+KEY_ROOT = 8.0
+NECK_W = 13.0
+BULB_R = 9.0
+BULB_CX = 12.0
 
 
 COLORS = {
@@ -84,23 +86,6 @@ HEX = {
     "O": "#E07A2F",
     "R": "#7A4DB8",
 }
-
-
-def _bulb_dx() -> float:
-    half = NECK_W / 2.0
-    if BULB_R <= half:
-        raise SystemExit("puzzle bulb is not wider than its neck")
-    return math.sqrt(BULB_R * BULB_R - half * half)
-
-
-def tab_reach() -> float:
-    """How far the key sticks past the seam, to the tip of the bulb."""
-    return NECK_LEN + _bulb_dx() + BULB_R
-
-
-def joint_gap() -> float:
-    """Space from the C bounding box to the T bounding box."""
-    return MALE_MARGIN + tab_reach() + FEMALE_MARGIN
 
 
 def make_letter(ch: str, size: float, thickness: float) -> cq.Workplane:
@@ -214,22 +199,36 @@ def _try_top_fillet(shape: cq.Workplane, label: str) -> cq.Workplane:
     return shape
 
 
-def make_tab(seam: float, cy: float, height: float) -> cq.Workplane:
-    """Key on the VIC piece. The neck overlaps the board so the union is solid."""
-    dx = _bulb_dx()
+def make_tab(seam: float, shape_top: float, height: float) -> cq.Workplane:
+    """Key on the bottom edge of VIC.
+
+    The neck bites KEY_ROOT millimetres into the board and rises to shape_top,
+    so the union is a real overlap rather than a sliver. The bulb hangs below
+    the edge and is wider than the neck.
+    """
+    cy = shape_top - BULB_R
     neck = (
         cq.Workplane("XY")
-        .center(seam + NECK_LEN / 2.0 - 0.25, cy)
-        .rect(NECK_LEN + 0.5, NECK_W)
+        .center(seam + (BULB_CX - KEY_ROOT) / 2.0, cy)
+        .rect(BULB_CX + KEY_ROOT, NECK_W)
+        .extrude(height)
+    )
+    # The cap stays on the VIC side of the seam and reaches up into the frame,
+    # so the hanging key is fused to the board. It does not widen the socket.
+    cap_bottom = cy + NECK_W / 2.0
+    cap = (
+        cq.Workplane("XY")
+        .center(seam - KEY_ROOT / 2.0, (shape_top + min(cap_bottom, 0.0)) / 2.0)
+        .rect(KEY_ROOT, shape_top - min(cap_bottom, 0.0))
         .extrude(height)
     )
     bulb = (
         cq.Workplane("XY")
-        .center(seam + NECK_LEN + dx, cy)
+        .center(seam + BULB_CX, cy)
         .circle(BULB_R)
         .extrude(height)
     )
-    tab = neck.union(bulb)
+    tab = neck.union(cap).union(bulb)
     if len(tab.solids().vals()) != 1 or not tab.val().isValid():
         raise SystemExit("puzzle key is not a single solid")
     return tab
@@ -248,6 +247,25 @@ def socket_from_tab(tab: cq.Workplane, clearance: float, height: float) -> cq.Wo
     return socket
 
 
+def housing_from_tab(tab: cq.Workplane, seam: float, height: float) -> cq.Workplane:
+    """Wall around the socket. Anything left of the seam is cut away."""
+    wire = tab.faces("<Z").val().outerWire()
+    wire = wire.translate((0, 0, -wire.Center().z))
+    grown = wire.offset2D(JOINT_CLEARANCE + KEY_WALL, "arc")
+    if len(grown) != 1:
+        raise SystemExit(f"key housing offset produced {len(grown)} outlines")
+    housing = cq.Workplane("XY").add(grown[0]).toPending().extrude(height)
+    clip = (
+        cq.Workplane("XY")
+        .box(400, 400, height + 20, centered=(True, True, True))
+        .translate((seam + JOINT_CLEARANCE - 200, 0, height / 2.0))
+    )
+    housing = housing.cut(clip)
+    if len(housing.solids().vals()) != 1 or not housing.val().isValid():
+        raise SystemExit("key housing is not a single solid")
+    return housing
+
+
 def build_boards(
     layout: dict, raw_letters: list[cq.Workplane]
 ) -> tuple[cq.Workplane, cq.Workplane, list[cq.Workplane], cq.Workplane]:
@@ -255,14 +273,14 @@ def build_boards(
     depth = layout["board_d"]
     seam = layout["seam"]
     board_w = layout["board_w"]
-    cy = depth / 2.0
 
     left = _rect(0, seam, 0, depth, board_h).edges("|Z and <X").fillet(BOARD_CORNER_R)
     right = _rect(seam + JOINT_CLEARANCE, board_w, 0, depth, board_h).edges("|Z and >X").fillet(BOARD_CORNER_R)
-    tab = make_tab(seam, cy, board_h)
+    tab = make_tab(seam, layout["shape_top"], board_h)
     socket = socket_from_tab(tab, JOINT_CLEARANCE, board_h)
+    housing = housing_from_tab(tab, seam, board_h)
     left = left.union(tab)
-    right = right.cut(socket)
+    right = right.union(housing).cut(socket)
     left = _try_top_fillet(left, "VIC")
     right = _try_top_fillet(right, "TOR")
 
@@ -279,14 +297,54 @@ def build_boards(
     return left, right, pockets, socket
 
 
+def _place_pocket(pocket: cq.Workplane, bb: cq.BoundBox, x0: float, y0: float, letter_h: float) -> cq.Workplane:
+    dy = (y0 + letter_h / 2.0) - bb.ylen / 2.0 - bb.ymin
+    return pocket.translate((x0 - bb.xmin, dy, 0))
+
+
+def _gap_at(prev: cq.Workplane, pocket: cq.Workplane, bb: cq.BoundBox, x0: float, y0: float, letter_h: float) -> float:
+    return min_distance(prev.val(), _place_pocket(pocket, bb, x0, y0, letter_h).val())
+
+
+def _x_for_gap(prev: cq.Workplane, pocket: cq.Workplane, bb: cq.BoundBox, y0: float, letter_h: float) -> float:
+    """Left edge of the next letter, so the wood between slots is LETTER_GAP.
+
+    Moving a letter along the row changes the gap by the same amount, so two
+    corrections land on the target.
+    """
+    x = bbox_of(prev).xmax + 1.0
+    for _ in range(4):
+        gap = _gap_at(prev, pocket, bb, x, y0, letter_h)
+        error = LETTER_GAP - gap
+        if abs(error) < 0.02:
+            break
+        x += error
+    return x
+
+
+def _seam_x(c_pocket: cq.Workplane, t_pocket: cq.Workplane, depth: float) -> float:
+    """A vertical cut halfway between the C slot and the T slot."""
+    c_bb = bbox_of(c_pocket)
+    t_bb = bbox_of(t_pocket)
+    x = (c_bb.xmax + t_bb.xmin) / 2.0
+    plane = _rect(x - 0.02, x + 0.02, -30, depth + 30, 40)
+    clear = min(min_distance(c_pocket.val(), plane.val()), min_distance(t_pocket.val(), plane.val()))
+    if clear < 4.0:
+        raise SystemExit(f"the seam only has {clear:.2f} mm of wood beside the letters")
+    return x
+
+
 def layout_for(raw_letters: list[cq.Workplane]) -> dict:
     boxes = [bbox_of(letter) for letter in raw_letters]
     letter_h = max(bb.ylen for bb in boxes)
     y0 = FRAME_Y
-    gap = joint_gap()
+    pockets = [letter_pocket(letter, FIT_CLEARANCE) for letter in raw_letters]
     wells = []
+    placed = []
     x = FRAME_X
-    for index, bb in enumerate(boxes):
+    for index, (bb, pocket) in enumerate(zip(boxes, pockets)):
+        if index:
+            x = _x_for_gap(placed[-1], pocket, bb, y0, letter_h)
         wells.append(
             {
                 "x0": x,
@@ -298,20 +356,25 @@ def layout_for(raw_letters: list[cq.Workplane]) -> dict:
                 "letter_bb": bb,
             }
         )
-        if index < len(boxes) - 1:
-            x += bb.xlen + (gap if index == len(LEFT_NAME) - 1 else DIVIDER)
-        else:
-            x += bb.xlen
-    board_w = x + FRAME_X
+        placed.append(_place_pocket(pocket, bb, x, y0, letter_h))
+        if index:
+            wood = min_distance(placed[-2].val(), placed[-1].val())
+            print(f"  gap before {NAME[index]}: {wood:.2f} mm")
+    board_w = wells[-1]["x0"] + wells[-1]["w"] + FRAME_X
     board_d = FRAME_Y + letter_h + FRAME_Y
-    c_well = wells[len(LEFT_NAME) - 1]
-    seam = c_well["x0"] + c_well["w"] + MALE_MARGIN
+    seam = _seam_x(placed[len(LEFT_NAME) - 1], placed[len(LEFT_NAME)], board_d)
+    pocket_ymin = min(bbox_of(placed[len(LEFT_NAME) - 1]).ymin, bbox_of(placed[len(LEFT_NAME)]).ymin)
+    shape_top = pocket_ymin - KEY_WOOD - JOINT_CLEARANCE - KEY_WALL
+    if shape_top < 4.0:
+        raise SystemExit("the bottom frame is too thin for the key")
     return {
         "wells": wells,
         "board_w": board_w,
         "board_d": board_d,
         "letter_h": letter_h,
         "seam": seam,
+        "shape_top": shape_top,
+        "key_y": shape_top - BULB_R,
         "gap": FIT_CLEARANCE,
     }
 
@@ -611,6 +674,7 @@ def render(
     path: Path,
     kind: str,
     seam: float,
+    key_y: float,
 ) -> None:
     import vtk
 
@@ -649,7 +713,7 @@ def render(
     span_y = max(bb.ymax, bb2.ymax) - min(bb.ymin, bb2.ymin)
     if kind == "joint":
         fx = seam + separate / 2.0
-        fy = bb.center.y
+        fy = key_y
     if kind == "top":
         cam.SetParallelProjection(True)
         cam.SetFocalPoint(fx, fy, 0)
@@ -664,9 +728,9 @@ def render(
         cam.SetPosition(fx, fy - 900, 6)
         ren.ResetCamera()
         if kind == "joint":
-            cam.Azimuth(28)
-            cam.Elevation(28)
-            cam.Zoom(2.4)
+            cam.SetFocalPoint(fx, fy, 4)
+            cam.SetPosition(fx - 30, fy - 150, 120)
+            cam.SetViewUp(0, 0, 1)
         else:
             cam.Azimuth(16 if kind == "angle" else 12)
             cam.Elevation(36 if kind == "angle" else 55)
@@ -797,6 +861,9 @@ def main() -> None:
     right_bb = bbox_of(right)
     print(f"  VIC piece {left_bb.xlen:.1f} x {left_bb.ylen:.1f} x {left_bb.zlen:.1f}")
     print(f"  TOR piece {right_bb.xlen:.1f} x {right_bb.ylen:.1f} x {right_bb.zlen:.1f}")
+    board_h = FLOOR + WELL_DEPTH
+    if abs(left_bb.zlen - board_h) > 0.05 or abs(right_bb.zlen - board_h) > 0.05:
+        raise SystemExit("a board piece is not the board thickness")
     for label, bb in (("VIC", left_bb), ("TOR", right_bb)):
         if bb.xlen > BED - 8 or bb.ylen > BED - 8:
             raise SystemExit(f"{label} does not fit the P2S bed with margin")
@@ -809,14 +876,16 @@ def main() -> None:
     if not 0.25 <= gap <= 0.50:
         raise SystemExit(f"puzzle key clearance is {gap:.2f} mm, expected about {JOINT_CLEARANCE:.2f}")
 
+    woods = []
     for index in range(len(pockets) - 1):
         wood = min_distance(pockets[index].val(), pockets[index + 1].val())
+        woods.append(wood)
         print(f"  wood between slot {index + 1} and {index + 2}: {wood:.2f} mm")
-        if wood < 4.0:
-            raise SystemExit("letter slots break into each other")
+    if max(woods) - min(woods) > 0.25 or abs(sum(woods) / len(woods) - LETTER_GAP) > 0.25:
+        raise SystemExit(f"letter gaps are not equal: {woods}")
     for index, pocket in enumerate(pockets):
         wood = min_distance(pocket.val(), socket.val())
-        if wood < 4.0:
+        if wood < 4.5:
             raise SystemExit(f"slot {index + 1} breaks into the puzzle key ({wood:.2f} mm)")
 
     def owner(index: int) -> cq.Workplane:
@@ -896,9 +965,11 @@ def main() -> None:
     bed_right = to_bed(right)
     left_size = bbox_of(bed_left)
     right_size = bbox_of(bed_right)
-    gap_y = 12.0
-    margin = 8.0
-    stack_h = left_size.ylen + gap_y + right_size.ylen
+    bodies = left_size.ylen + right_size.ylen
+    gap_y = min(12.0, BED - bodies - 8.0)
+    if gap_y < 6.0:
+        raise SystemExit("the two board halves do not fit on one plate")
+    stack_h = bodies + gap_y
     y0 = (BED - stack_h) / 2.0
     left_pos = ((BED - left_size.xlen) / 2.0, y0, 0.0)
     right_pos = ((BED - right_size.xlen) / 2.0, y0 + left_size.ylen + gap_y, 0.0)
@@ -959,11 +1030,11 @@ def main() -> None:
 
     print("Rendering previews...")
     boards = [left, right]
-    render(boards, placed, 4, PREVIEW_DIR / "victor_puzzle_angle.png", "angle", layout["seam"])
-    render(boards, placed, -1, PREVIEW_DIR / "victor_puzzle_seated.png", "angle", layout["seam"])
-    render(boards, placed, 4, PREVIEW_DIR / "victor_puzzle_top.png", "top", layout["seam"])
-    render(boards, placed, -1, PREVIEW_DIR / "victor_puzzle_holes.png", "holes", layout["seam"])
-    render(boards, placed, -1, PREVIEW_DIR / "victor_puzzle_joint.png", "joint", layout["seam"])
+    render(boards, placed, 4, PREVIEW_DIR / "victor_puzzle_angle.png", "angle", layout["seam"], layout["key_y"])
+    render(boards, placed, -1, PREVIEW_DIR / "victor_puzzle_seated.png", "angle", layout["seam"], layout["key_y"])
+    render(boards, placed, 4, PREVIEW_DIR / "victor_puzzle_top.png", "top", layout["seam"], layout["key_y"])
+    render(boards, placed, -1, PREVIEW_DIR / "victor_puzzle_holes.png", "holes", layout["seam"], layout["key_y"])
+    render(boards, placed, -1, PREVIEW_DIR / "victor_puzzle_joint.png", "joint", layout["seam"], layout["key_y"])
 
     def grams(shape: cq.Workplane, shell_fraction: float) -> float:
         return shape.val().Volume() / 1000.0 * 1.24 * shell_fraction
