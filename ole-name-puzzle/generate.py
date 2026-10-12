@@ -2,11 +2,11 @@
 """Generate a wooden-style OLE name puzzle sized for a Bambu Lab P2S.
 
 OLE uses the same letter size as the printed FINN puzzle. Three letters at
-that size fit on one board. Their shared width is halfway between the natural
-O and the natural L: the O is squeezed in width, and the L and E grow by a
-longer foot and longer arms. The uprights of L and E stay the original
-thickness. The wood between each pair is the same. O keeps its counter, so
-the board has a matching island. The slot is 0.40 mm larger than the letter.
+that size fit on one board. The O stays the round font shape. L and E are
+wider than the font, halfway from their natural width toward the O, by a
+longer foot and longer arms. Their uprights stay the original thickness.
+The wood between each pair is the same. O keeps its counter, so the board
+has a matching island. The slot is 0.40 mm larger than the letter.
 
 Run from this directory:
 
@@ -175,38 +175,6 @@ def widen_arms(letter: cq.Workplane, target_width: float) -> cq.Workplane:
     if abs(got.zlen - LETTER_THICK) > 0.05 or abs(got.ylen - bb.ylen) > 0.3:
         raise SystemExit(f"widened letter changed height ({got.ylen:.2f} x {got.zlen:.2f})")
     return widened
-
-
-def narrow_width(letter: cq.Workplane, target_width: float) -> cq.Workplane:
-    """Squeeze a letter in width and keep its height, including any counter."""
-    bb = bbox_of(letter)
-    if abs(bb.xlen - target_width) < 0.2:
-        return letter
-    scale = target_width / bb.xlen
-    if not 0.70 <= scale <= 0.95:
-        raise SystemExit(f"width scale {scale:.2f} is outside a sensible range")
-    face = _section_face(letter)
-
-    def squeeze(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
-        return [(bb.xmin + (x - bb.xmin) * scale, y) for x, y in points]
-
-    outer = squeeze(_outline_points(face.outerWire()))
-    narrowed = cq.Workplane("XY").polyline(outer).close().extrude(LETTER_THICK)
-    for inner in face.innerWires():
-        hole = squeeze(_outline_points(inner))
-        cutter = cq.Workplane("XY").polyline(hole).close().extrude(LETTER_THICK + 2.0).translate((0, 0, -1))
-        narrowed = narrowed.cut(cutter)
-    if len(narrowed.solids().vals()) != 1 or not narrowed.val().isValid():
-        raise SystemExit("narrowed letter is not a single solid")
-    got = bbox_of(narrowed)
-    if abs(got.xlen - target_width) > 0.4:
-        raise SystemExit(f"narrowed letter is {got.xlen:.2f} mm wide, wanted {target_width:.2f}")
-    if abs(got.zlen - LETTER_THICK) > 0.05 or abs(got.ylen - bb.ylen) > 0.3:
-        raise SystemExit(f"narrowed letter changed height ({got.ylen:.2f} x {got.zlen:.2f})")
-    check = _section_face(narrowed)
-    if len(face.innerWires()) != len(check.innerWires()):
-        raise SystemExit("narrowed letter lost its counter")
-    return narrowed
 
 
 def _accept(candidate: cq.Workplane, fallback: cq.Workplane) -> cq.Workplane:
@@ -789,22 +757,21 @@ def main() -> None:
 
     print(f"Building OLE at the FINN letter size ({FONT_SIZE:.2f})...")
     raw = [make_letter(ch, FONT_SIZE, LETTER_THICK) for ch in NAME]
-    o_width = bbox_of(raw[0]).xlen
-    l_width = bbox_of(raw[1]).xlen
-    target_width = (o_width + l_width) / 2.0
-    print(f"  shared width {target_width:.1f} mm, halfway between O ({o_width:.1f}) and L ({l_width:.1f})")
-    raw = [
-        narrow_width(letter, target_width) if ch == "O" else widen_arms(letter, target_width)
-        for ch, letter in zip(NAME, raw)
-    ]
-    widths = []
+    natural = [bbox_of(letter).xlen for letter in raw]
+    target_width = (natural[0] + natural[1]) / 2.0
+    print(f"  O stays round at {natural[0]:.1f} mm")
+    print(f"  L and E widen to {target_width:.1f} mm")
+    raw = [raw[0], widen_arms(raw[1], target_width), widen_arms(raw[2], target_width)]
     for ch, letter in zip(NAME, raw):
         assert_single_piece(letter, f"raw {ch}")
         bb = bbox_of(letter)
-        widths.append(bb.xlen)
         print(f"  {ch} {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f}")
-    if max(widths) - min(widths) > 0.5:
-        raise SystemExit(f"letter widths are not equal: {widths}")
+    o_box = bbox_of(raw[0])
+    if abs(o_box.xlen - natural[0]) > 0.3 or abs(o_box.ylen - o_box.xlen) > 10.0:
+        raise SystemExit("O is no longer the round font shape")
+    for letter in raw[1:]:
+        if abs(bbox_of(letter).xlen - target_width) > 0.5:
+            raise SystemExit("L or E changed width")
 
     layout = layout_for(raw)
     print(f"  board {layout['board_w']:.1f} x {layout['board_d']:.1f} mm")
