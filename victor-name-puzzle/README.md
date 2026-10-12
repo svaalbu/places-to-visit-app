@@ -1,6 +1,6 @@
 # VICTOR name puzzle
 
-A name puzzle for a Bambu Lab P2S, in the same chunky wooden style as the FINN board. The letters are the same size as the printed FINN letters. The board is one long row, split into two pieces. The wood between every letter is the same. The key hangs on the bottom edge, under the seam between C and T, so that pair is not pushed apart.
+A name puzzle for a Bambu Lab P2S, in the same chunky wooden style as the FINN board. The row is scaled so the glued board is **256 mm** wide, the full bed. It is still two pieces, so each half prints with room around it. The wood between every letter is the same. The key hangs on the bottom edge, under the seam between C and T, so that pair is not pushed apart.
 
 ![VICTOR seated in the board](preview/victor_puzzle_seated.png)
 
@@ -10,9 +10,7 @@ A name puzzle for a Bambu Lab P2S, in the same chunky wooden style as the FINN b
 
 ## Why it is two pieces
 
-VICTOR in one row, at this letter size, is about **361 mm** long. The P2S bed is 256 mm. A single-piece board only fits if the letters shrink to about two thirds. At that size the I is about 24 × 43 mm and can pass a small-parts cylinder (31.7 mm across and 57.1 mm deep), which is too small for a toddler toy.
-
-The full-size letters stay. The board is printed as **VIC** and **TOR**. Each half fits on the bed with room to spare. There is 10 mm of wood between every pair of letters, including C and T. The VIC piece has a round key on the bottom edge. The TOR piece has the matching socket. The neck of the key is narrower than the round end, so the halves cannot pull apart sideways. They slide together from above.
+The glued board is **256.0 mm** wide, which is the whole P2S bed. A single piece that wide sits on both edges of the plate. Printed as **VIC** and **TOR**, each half has room around it. There is **7.1 mm** of wood between every pair of letters, including C and T. The VIC piece has a round key on the bottom edge. The TOR piece has the matching socket. The neck of the key is narrower than the round end, so the halves cannot pull apart sideways. They slide together from above.
 
 A few drops of plastic glue (CA) along the seam and inside the key make it one board a child can pick up. Without glue it still sits as one puzzle on the table, but one half can slide upward if the board is lifted by the other end. Glue is the right finish. The key is there so the halves line up and the joint is stronger than a flat butt glue.
 
@@ -69,26 +67,26 @@ If a letter feels tight, scale **that letter** to 99%. Leave both board pieces a
 
 ## Sizes
 
-The two pieces together are one board of **360.8 × 93.3 × 10.5 mm**. The key hangs below that rectangle, so the printed pieces are a little deeper. Printed separately:
+The two pieces together are one board of **256.0 × 65.9 × 10.5 mm**. The key hangs below that rectangle, so the printed pieces are a little deeper. Printed separately:
 
 | Piece | Size (mm) |
 | --- | --- |
-| Board VIC | 195.9 × 106.1 × 10.5 |
-| Board TOR | 185.6 × 109.4 × 10.5 |
-| V | 58.1 × 63.8 × 11.0 |
-| I | 35.8 × 63.6 × 11.0 |
-| C | 45.8 × 65.3 × 11.0 |
-| T | 44.4 × 64.0 × 11.0 |
-| O | 57.8 × 65.3 × 11.0 |
-| R | 47.7 × 64.2 × 11.0 |
+| Board VIC | 138.9 × 75.1 × 10.5 |
+| Board TOR | 131.6 × 77.6 × 10.5 |
+| V | 41.0 × 45.0 × 11.0 |
+| I | 25.3 × 44.9 × 11.0 |
+| C | 32.3 × 46.1 × 11.0 |
+| T | 31.4 × 45.2 × 11.0 |
+| O | 40.8 × 46.1 × 11.0 |
+| R | 33.7 × 45.3 × 11.0 |
 
-The slots are 7 mm deep. The letters are 11 mm thick. The board floor is 3.5 mm. There is 10 mm of wood between every pair of letters. The key is 18 mm across at the round end and 13 mm across at the neck.
+The slots are 7 mm deep. The letters are 11 mm thick. The board floor is 3.5 mm. There is 7.1 mm of wood between every pair of letters. The key is 12.7 mm across at the round end and 9.2 mm across at the neck.
 
 ![Empty letter-shaped holes](preview/victor_puzzle_holes.png)
 
 ![Top view](preview/victor_puzzle_top.png)
 
-These pieces are large for a toddler toy. The smallest letter is still about 36 mm wide and 64 mm tall. Supervise play the way you would with any small child's toy.
+The **I** is 25.3 × 44.9 × 11.0 mm. That fits a small-parts cylinder (31.7 mm across and 57.1 mm deep), so it is small for a toddler. The other letters are wider than that opening. Supervise play the way you would with any small child's toy.
 
 ## Regenerating the files
 

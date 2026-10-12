@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Generate a wooden-style VICTOR name puzzle sized for a Bambu Lab P2S.
 
-VICTOR at the same letter size as the printed FINN puzzle is about 361 mm
-long, so it does not fit the 256 mm bed in one piece. Shrinking it until it
-does would make the I small enough to fit in a small-parts cylinder. The
-board is therefore two pieces, VIC and TOR, on one row. The wood between
-every pair of letters is the same. The key hangs on the bottom edge, under
-the seam, so it does not push C and T apart. Slide the key down into the
-socket, then glue the seam if the board should be picked up as one piece.
+The row is scaled so the glued board is 256 mm wide, the full P2S bed.
+It is still two pieces, VIC and TOR, so each half prints with room around
+it. The wood between every pair of letters is the same. The key hangs on
+the bottom edge, under the seam, so it does not push C and T apart. Slide
+the key down into the socket, then glue the seam if the board should be
+picked up as one piece. Letter thickness stays 11 mm, and each slot stays
+0.40 mm larger than its letter.
 
 Each slot is that letter's outline. O and R keep their counters, so the
 board has a matching island. The slot is 0.40 mm larger than the letter.
@@ -38,33 +38,68 @@ LEFT_NAME = "VIC"
 RIGHT_NAME = "TOR"
 
 # Millimetres. The P2S build volume is 256 x 256 x 256.
-# This is the font size the printed FINN puzzle uses, so the letters match.
-FONT_SIZE = 90.874509
+# The in-plane sizes below are the printed FINN letter size. apply_plan_scale
+# shrinks them until the glued board is exactly one bed wide. Thickness and
+# the slot clearance stay put, so the letters remain 11 mm and a close fit.
+BED = 256.0
+TARGET_WIDTH = BED
+PLAN_SCALE = 1.0
+_FULL_FONT = 90.874509
+_FULL_FRAME_X = 13.0
+_FULL_FRAME_Y = 14.0
+_FULL_GAP = 10.0
+_FULL_CORNER = 11.0
+_FULL_KEY_WALL = 3.0
+_FULL_KEY_WOOD = 5.0
+_FULL_KEY_ROOT = 8.0
+_FULL_NECK = 13.0
+_FULL_BULB_R = 9.0
+_FULL_BULB_CX = 12.0
+FONT_SIZE = _FULL_FONT
 FIT_CLEARANCE = 0.40
-FRAME_X = 13.0
-FRAME_Y = 14.0
+FRAME_X = _FULL_FRAME_X
+FRAME_Y = _FULL_FRAME_Y
 FLOOR = 3.5
 WELL_DEPTH = 7.0
 LETTER_THICK = 11.0
-BOARD_CORNER_R = 11.0
+BOARD_CORNER_R = _FULL_CORNER
 OUTER_EDGE_R = 1.6
 TOP_SOFTEN = 0.85
 BOTTOM_LEAD = 0.30
-BED = 256.0
 # Bambu Studio lays plates on a grid of bed * (1 + 1/5). Plate 2 starts here.
 PLATE_STRIDE = BED * 1.2
 
 # Wood between neighboring slots. Every pair, including C and T, uses this.
-LETTER_GAP = 10.0
+LETTER_GAP = _FULL_GAP
 # The key hangs below the bottom edge. The neck is narrower than the bulb,
 # so the halves cannot pull apart sideways. They slide together along Z.
 JOINT_CLEARANCE = 0.35
-KEY_WALL = 3.0
-KEY_WOOD = 5.0
-KEY_ROOT = 8.0
-NECK_W = 13.0
-BULB_R = 9.0
-BULB_CX = 12.0
+KEY_WALL = _FULL_KEY_WALL
+KEY_WOOD = _FULL_KEY_WOOD
+KEY_ROOT = _FULL_KEY_ROOT
+NECK_W = _FULL_NECK
+BULB_R = _FULL_BULB_R
+BULB_CX = _FULL_BULB_CX
+
+
+def apply_plan_scale(scale: float) -> None:
+    """Shrink the row. Thickness, slot clearance, and key clearance stay fixed."""
+    global PLAN_SCALE, FONT_SIZE, FRAME_X, FRAME_Y, LETTER_GAP, BOARD_CORNER_R
+    global KEY_WALL, KEY_WOOD, KEY_ROOT, NECK_W, BULB_R, BULB_CX
+    if not 0.45 <= scale <= 1.0:
+        raise SystemExit(f"plan scale {scale:.3f} is outside a sensible range")
+    PLAN_SCALE = scale
+    FONT_SIZE = _FULL_FONT * scale
+    FRAME_X = _FULL_FRAME_X * scale
+    FRAME_Y = _FULL_FRAME_Y * scale
+    LETTER_GAP = _FULL_GAP * scale
+    BOARD_CORNER_R = _FULL_CORNER * scale
+    KEY_WALL = _FULL_KEY_WALL * scale
+    KEY_WOOD = _FULL_KEY_WOOD * scale
+    KEY_ROOT = _FULL_KEY_ROOT * scale
+    NECK_W = _FULL_NECK * scale
+    BULB_R = _FULL_BULB_R * scale
+    BULB_CX = _FULL_BULB_CX * scale
 
 
 COLORS = {
@@ -329,7 +364,7 @@ def _seam_x(c_pocket: cq.Workplane, t_pocket: cq.Workplane, depth: float) -> flo
     x = (c_bb.xmax + t_bb.xmin) / 2.0
     plane = _rect(x - 0.02, x + 0.02, -30, depth + 30, 40)
     clear = min(min_distance(c_pocket.val(), plane.val()), min_distance(t_pocket.val(), plane.val()))
-    if clear < 4.0:
+    if clear < 4.0 * PLAN_SCALE:
         raise SystemExit(f"the seam only has {clear:.2f} mm of wood beside the letters")
     return x
 
@@ -365,7 +400,7 @@ def layout_for(raw_letters: list[cq.Workplane]) -> dict:
     seam = _seam_x(placed[len(LEFT_NAME) - 1], placed[len(LEFT_NAME)], board_d)
     pocket_ymin = min(bbox_of(placed[len(LEFT_NAME) - 1]).ymin, bbox_of(placed[len(LEFT_NAME)]).ymin)
     shape_top = pocket_ymin - KEY_WOOD - JOINT_CLEARANCE - KEY_WALL
-    if shape_top < 4.0:
+    if shape_top < 4.0 * PLAN_SCALE:
         raise SystemExit("the bottom frame is too thin for the key")
     return {
         "wells": wells,
@@ -838,14 +873,28 @@ def main() -> None:
     if NECK_W >= 2 * BULB_R - 1:
         raise SystemExit("puzzle key would pull apart sideways")
 
-    print(f"Building VICTOR at the FINN letter size ({FONT_SIZE:.2f})...")
-    raw = [make_letter(ch, FONT_SIZE, LETTER_THICK) for ch in NAME]
+    print(f"Fitting VICTOR to the {TARGET_WIDTH:.0f} mm bed...")
+    # The full-size row is 360.8 mm. One correction is enough because width
+    # tracks the plan scale almost exactly.
+    scale = TARGET_WIDTH / 360.83
+    raw = None
+    layout = None
+    for _ in range(3):
+        apply_plan_scale(scale)
+        raw = [make_letter(ch, FONT_SIZE, LETTER_THICK) for ch in NAME]
+        for ch, letter in zip(NAME, raw):
+            assert_single_piece(letter, f"raw {ch}")
+        layout = layout_for(raw)
+        print(f"  scale {scale:.4f} -> board {layout['board_w']:.2f} mm")
+        if abs(layout["board_w"] - TARGET_WIDTH) < 0.4:
+            break
+        scale *= TARGET_WIDTH / layout["board_w"]
+    if abs(layout["board_w"] - TARGET_WIDTH) > 0.6:
+        raise SystemExit(f"board is {layout['board_w']:.2f} mm, wanted {TARGET_WIDTH:.0f}")
+    print(f"  letters at font {FONT_SIZE:.2f}, wood between letters {LETTER_GAP:.2f} mm")
     for ch, letter in zip(NAME, raw):
-        assert_single_piece(letter, f"raw {ch}")
         bb = bbox_of(letter)
         print(f"  {ch} {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f}")
-
-    layout = layout_for(raw)
     print(
         f"  assembled board {layout['board_w']:.1f} x {layout['board_d']:.1f} mm, seam at {layout['seam']:.1f}"
     )
@@ -885,7 +934,7 @@ def main() -> None:
         raise SystemExit(f"letter gaps are not equal: {woods}")
     for index, pocket in enumerate(pockets):
         wood = min_distance(pocket.val(), socket.val())
-        if wood < 4.5:
+        if wood < 4.5 * PLAN_SCALE:
             raise SystemExit(f"slot {index + 1} breaks into the puzzle key ({wood:.2f} mm)")
 
     def owner(index: int) -> cq.Workplane:
@@ -911,7 +960,7 @@ def main() -> None:
             moved = place_letter(raw[piece_i], layout["wells"][slot_i], FLOOR)
             clash = solid_volume(owner(slot_i).intersect(moved))
             print(f"  {piece_ch} in the {slot_ch} slot clashes by {clash:.0f} mm^3")
-            if clash < 200:
+            if clash < 200.0 * PLAN_SCALE * PLAN_SCALE:
                 raise SystemExit(f"{piece_ch} fits the {slot_ch} slot")
 
     print("Softening letter edges...")
@@ -934,8 +983,18 @@ def main() -> None:
 
     for ch, letter in zip(NAME, letters):
         bb = bbox_of(letter)
-        if min(bb.xlen, bb.ylen) < 32 or max(bb.xlen, bb.ylen) < 58:
-            raise SystemExit(f"{ch} is small for a toddler toy: {bb.xlen:.1f} x {bb.ylen:.1f}")
+        dims = (bb.xlen, bb.ylen, bb.zlen)
+        fits_cylinder = False
+        for depth_index, depth in enumerate(dims):
+            others = [dims[i] for i in range(3) if i != depth_index]
+            diagonal = (others[0] ** 2 + others[1] ** 2) ** 0.5
+            if depth < 57.1 and diagonal < 31.7:
+                fits_cylinder = True
+        if fits_cylinder:
+            print(
+                f"  warning: {ch} is {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f} mm"
+                " and fits a small-parts cylinder"
+            )
 
     print("Exporting STL...")
     STL_DIR.mkdir(parents=True, exist_ok=True)
@@ -1041,6 +1100,8 @@ def main() -> None:
 
     info = {
         "font_size": FONT_SIZE,
+        "plan_scale": PLAN_SCALE,
+        "letter_gap": LETTER_GAP,
         "board_w": layout["board_w"],
         "board_d": layout["board_d"],
         "board_h": FLOOR + WELL_DEPTH,
