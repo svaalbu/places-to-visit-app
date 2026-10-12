@@ -2,9 +2,11 @@
 """Generate a wooden-style OLE name puzzle sized for a Bambu Lab P2S.
 
 OLE uses the same letter size as the printed FINN puzzle. Three letters at
-that size fit on one board. The wood between each pair is the same. O keeps
-its counter, so the board has a matching island. The slot is 0.40 mm larger
-than the letter.
+that size fit on one board. L and E are widened, by lengthening the foot and
+the arms, until each letter is as wide as the O. The uprights stay the
+original thickness. The wood between each pair is the same. O keeps its
+counter, so the board has a matching island. The slot is 0.40 mm larger than
+the letter.
 
 Run from this directory:
 
@@ -76,6 +78,104 @@ def make_letter(ch: str, size: float, thickness: float) -> cq.Workplane:
 
 def bbox_of(shape: cq.Workplane) -> cq.BoundBox:
     return shape.val().BoundingBox()
+
+
+def _stem_right(letter: cq.Workplane) -> float:
+    """Right edge of the upright, where the foot or arms have not started."""
+    bb = bbox_of(letter)
+    narrow = []
+    for step in range(30, 93, 2):
+        y = bb.ymin + bb.ylen * (step / 100.0)
+        clip = (
+            cq.Workplane("XY")
+            .box(bb.xlen + 40, 0.5, bb.zlen + 4, centered=(True, True, True))
+            .translate((bb.center.x, y, bb.center.z))
+        )
+        solids = letter.intersect(clip).solids().vals()
+        if len(solids) != 1:
+            continue
+        narrow.append(solids[0].BoundingBox().xmax)
+    if not narrow:
+        raise SystemExit("could not find the upright")
+    return min(narrow)
+
+
+def _section_outer_wire(letter: cq.Workplane):
+    """Planar outline of a letter, taken just above the base."""
+    bb = bbox_of(letter)
+    slab = (
+        cq.Workplane("XY")
+        .box(bb.xlen + 30, bb.ylen + 30, 0.2, centered=(True, True, True))
+        .translate((bb.center.x, bb.center.y, bb.zmin + 1.0))
+    )
+    faces = letter.intersect(slab).faces(">Z").vals()
+    if len(faces) != 1:
+        raise SystemExit(f"letter section has {len(faces)} faces")
+    return faces[0].outerWire()
+
+
+def _outline_points(wire, deflection: float = 0.05) -> list[tuple[float, float]]:
+    """Walk the outline in order. Curves are sampled finely enough to print."""
+    from OCP.BRep import BRep_Tool
+    from OCP.BRepAdaptor import BRepAdaptor_Curve
+    from OCP.BRepTools import BRepTools_WireExplorer
+    from OCP.GCPnts import GCPnts_QuasiUniformDeflection
+    from OCP.TopoDS import TopoDS
+
+    points: list[tuple[float, float]] = []
+    explorer = BRepTools_WireExplorer(wire.wrapped)
+    while explorer.More():
+        edge = explorer.Current()
+        sampled = GCPnts_QuasiUniformDeflection(BRepAdaptor_Curve(edge), deflection)
+        if not sampled.IsDone() or sampled.NbPoints() < 2:
+            explorer.Next()
+            continue
+        edge_points = [(sampled.Value(i).X(), sampled.Value(i).Y()) for i in range(1, sampled.NbPoints() + 1)]
+        start = BRep_Tool.Pnt_s(TopoDS.Vertex_s(explorer.CurrentVertex()))
+        if abs(edge_points[0][0] - start.X()) > 1e-4 or abs(edge_points[0][1] - start.Y()) > 1e-4:
+            edge_points.reverse()
+        for xy in edge_points:
+            if points and abs(xy[0] - points[-1][0]) < 1e-6 and abs(xy[1] - points[-1][1]) < 1e-6:
+                continue
+            points.append(xy)
+        explorer.Next()
+    if len(points) > 2 and abs(points[0][0] - points[-1][0]) < 1e-5 and abs(points[0][1] - points[-1][1]) < 1e-5:
+        points.pop()
+    if len(points) < 12:
+        raise SystemExit("letter outline is too coarse to widen")
+    return points
+
+
+def widen_arms(letter: cq.Workplane, target_width: float) -> cq.Workplane:
+    """Lengthen the foot or arms so the letter matches a target width.
+
+    The upright is not scaled, so the stroke stays as thick as the O.
+    The new letter is a straight extrusion of that outline.
+    """
+    bb = bbox_of(letter)
+    if abs(bb.xlen - target_width) < 0.2:
+        return letter
+    stem = _stem_right(letter)
+    arm = bb.xmax - stem
+    if arm < 8.0 or stem - bb.xmin < 8.0:
+        raise SystemExit(f"letter upright/arm split looks wrong (stem {stem - bb.xmin:.1f}, arm {arm:.1f})")
+    scale = ((bb.xmin + target_width) - stem) / arm
+    if not 1.05 <= scale <= 3.0:
+        raise SystemExit(f"arm scale {scale:.2f} is outside a sensible range")
+    scaled = []
+    for x, y in _outline_points(_section_outer_wire(letter)):
+        if x > stem + 0.02:
+            x = stem + (x - stem) * scale
+        scaled.append((x, y))
+    widened = cq.Workplane("XY").polyline(scaled).close().extrude(LETTER_THICK)
+    if len(widened.solids().vals()) != 1 or not widened.val().isValid():
+        raise SystemExit("widened letter is not a single solid")
+    got = bbox_of(widened)
+    if abs(got.xlen - target_width) > 0.4:
+        raise SystemExit(f"widened letter is {got.xlen:.2f} mm wide, wanted {target_width:.2f}")
+    if abs(got.zlen - LETTER_THICK) > 0.05 or abs(got.ylen - bb.ylen) > 0.3:
+        raise SystemExit(f"widened letter changed height ({got.ylen:.2f} x {got.zlen:.2f})")
+    return widened
 
 
 def _accept(candidate: cq.Workplane, fallback: cq.Workplane) -> cq.Workplane:
@@ -658,10 +758,20 @@ def main() -> None:
 
     print(f"Building OLE at the FINN letter size ({FONT_SIZE:.2f})...")
     raw = [make_letter(ch, FONT_SIZE, LETTER_THICK) for ch in NAME]
+    target_width = bbox_of(raw[0]).xlen
+    print(f"  matching L and E to the O width ({target_width:.1f} mm)")
+    raw = [
+        letter if ch == "O" else widen_arms(letter, target_width)
+        for ch, letter in zip(NAME, raw)
+    ]
+    widths = []
     for ch, letter in zip(NAME, raw):
         assert_single_piece(letter, f"raw {ch}")
         bb = bbox_of(letter)
+        widths.append(bb.xlen)
         print(f"  {ch} {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f}")
+    if max(widths) - min(widths) > 0.5:
+        raise SystemExit(f"letter widths are not equal: {widths}")
 
     layout = layout_for(raw)
     print(f"  board {layout['board_w']:.1f} x {layout['board_d']:.1f} mm")
