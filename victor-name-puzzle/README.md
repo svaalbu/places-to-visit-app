@@ -1,18 +1,10 @@
 # VICTOR name puzzle
 
-A name puzzle for a Bambu Lab P2S, in the same chunky wooden style as the FINN board. The row is scaled so the glued board is **256 mm** wide, the full bed. It is still two pieces, so each half prints with room around it. The wood between every letter is the same. The key hangs on the bottom edge, under the seam between C and T, so that pair is not pushed apart.
+A name puzzle for a Bambu Lab P2S, in the same chunky wooden style as the FINN board. The board is one solid piece. The row is scaled so it fits the 256 mm bed with a few millimetres to spare. The wood between every letter is the same.
 
 ![VICTOR seated in the board](preview/victor_puzzle_seated.png)
 
 ![The O lifted off its hole](preview/victor_puzzle_angle.png)
-
-![The key that joins the two halves](preview/victor_puzzle_joint.png)
-
-## Why it is two pieces
-
-The glued board is **256.0 mm** wide, which is the whole P2S bed. A single piece that wide sits on both edges of the plate. Printed as **VIC** and **TOR**, each half has room around it. There is **7.1 mm** of wood between every pair of letters, including C and T. The VIC piece has a round key on the bottom edge. The TOR piece has the matching socket. The neck of the key is narrower than the round end, so the halves cannot pull apart sideways. They slide together from above.
-
-A few drops of plastic glue (CA) along the seam and inside the key make it one board a child can pick up. Without glue it still sits as one puzzle on the table, but one half can slide upward if the board is lifted by the other end. Glue is the right finish. The key is there so the halves line up and the joint is stronger than a flat butt glue.
 
 ## Print this
 
@@ -20,8 +12,7 @@ Use a **0.4 mm nozzle** and **PLA**. A matte or wood-tone PLA looks the most lik
 
 | Piece | File | Suggested PLA | How many |
 | --- | --- | --- | --- |
-| Board VIC | `stl/victor_board_vic.stl` | Tan, beige, or wood | 1 |
-| Board TOR | `stl/victor_board_tor.stl` | Same tan as VIC | 1 |
+| Board | `stl/victor_board.stl` | Tan, beige, or wood | 1 |
 | V | `stl/victor_letter_V.stl` | Red | 1 |
 | I | `stl/victor_letter_I.stl` | Blue | 1 |
 | C | `stl/victor_letter_C.stl` | Green | 1 |
@@ -29,18 +20,12 @@ Use a **0.4 mm nozzle** and **PLA**. A matte or wood-tone PLA looks the most lik
 | O | `stl/victor_letter_O.stl` | Orange | 1 |
 | R | `stl/victor_letter_R.stl` | Purple | 1 |
 
-`victor_name_puzzle.3mf` is a Bambu Studio project for the **Bambu Lab P2S, 0.4 mm nozzle**, using the **0.20 mm Standard** process and seven **PLA Basic** slots (tan, red, blue, green, yellow, orange, purple). Plate 1 is the two board halves. Plate 2 is the letters. Both boards are the same color, so plate 1 can print in one job. The letters are different colors. Separate letter plates avoid an AMS and the purge waste.
+`victor_name_puzzle.3mf` is a Bambu Studio project for the **Bambu Lab P2S, 0.4 mm nozzle**, using the **0.20 mm Standard** process and seven **PLA Basic** slots (tan, red, blue, green, yellow, orange, purple). Plate 1 is the board. Plate 2 is the letters. The letters are different colors. Separate letter plates avoid an AMS and the purge waste.
 
 ### On the bed
 
-- **Boards:** flat, slots facing up. No supports. The two halves are already placed on plate 1 with a gap between them. They are the same filament, so the normal layer-by-layer sequence is right. Do not turn on print-by-object for this plate.
+- **Board:** flat, slots facing up. No supports. It is already centered on plate 1.
 - **Letters:** flat, one color at a time unless you have an AMS. The broader flat face goes on the build plate. No supports and no brim.
-
-### Joining the board
-
-1. Test-fit the key with no glue. VIC's key slides down into TOR's socket. The top faces should land flush.
-2. If it is tight, the usual cause is the first-layer squish. Elephant foot compensation of **0.10 mm** is enough. Do not scale the boards.
-3. Put a thin bead of CA on the straight seam and around the key. Slide them together on a flat table. Wipe the squeeze-out. Keep the board flat until the glue holds.
 
 ### Bambu Studio settings
 
@@ -49,7 +34,7 @@ The 3MF already selects the P2S 0.4 mm nozzle and 0.20 mm Standard. If you start
 - Layer height **0.20 mm** (0.16 mm for smoother letter sides)
 - Walls **4**
 - Infill **15% gyroid**
-- **Board pieces:** top shells **9** and bottom shells **9**. The floor is 3.5 mm, and 9 × 0.20 mm covers it, so the floor prints solid. The rim still has gyroid in the middle.
+- **Board:** top shells **9** and bottom shells **9**. The floor is 3.5 mm, and 9 × 0.20 mm covers it, so the floor prints solid. The rim still has gyroid in the middle.
 - **Letters:** top and bottom shells **5** are enough
 - Ironing **on**, top surfaces only
 - Supports **off**
@@ -63,30 +48,29 @@ Each hole is that letter, **0.40 mm** larger on every side. O and R keep their h
 
 The meshes are closed. Bambu Studio should not ask you to repair open edges, and it should not warn that `extruder_type` was replaced.
 
-If a letter feels tight, scale **that letter** to 99%. Leave both board pieces at 100%.
+If a letter feels tight, scale **that letter** to 99%. Leave the board at 100%.
 
 ## Sizes
 
-The two pieces together are one board of **256.0 × 65.9 × 10.5 mm**. The key hangs below that rectangle, so the printed pieces are a little deeper. Printed separately:
+The board is **247.5 × 63.7 × 10.5 mm**.
 
 | Piece | Size (mm) |
 | --- | --- |
-| Board VIC | 138.9 × 75.1 × 10.5 |
-| Board TOR | 131.6 × 77.6 × 10.5 |
-| V | 41.0 × 45.0 × 11.0 |
-| I | 25.3 × 44.9 × 11.0 |
-| C | 32.3 × 46.1 × 11.0 |
-| T | 31.4 × 45.2 × 11.0 |
-| O | 40.8 × 46.1 × 11.0 |
-| R | 33.7 × 45.3 × 11.0 |
+| Board | 247.5 × 63.7 × 10.5 |
+| V | 39.6 × 43.5 × 11.0 |
+| I | 24.4 × 43.4 × 11.0 |
+| C | 31.2 × 44.6 × 11.0 |
+| T | 30.3 × 43.7 × 11.0 |
+| O | 39.4 × 44.6 × 11.0 |
+| R | 32.6 × 43.8 × 11.0 |
 
-The slots are 7 mm deep. The letters are 11 mm thick. The board floor is 3.5 mm. There is 7.1 mm of wood between every pair of letters. The key is 12.7 mm across at the round end and 9.2 mm across at the neck.
+The slots are 7 mm deep. The letters are 11 mm thick. The board floor is 3.5 mm. There is 6.8 mm of wood between every pair of letters.
 
 ![Empty letter-shaped holes](preview/victor_puzzle_holes.png)
 
 ![Top view](preview/victor_puzzle_top.png)
 
-The **I** is 25.3 × 44.9 × 11.0 mm. That fits a small-parts cylinder (31.7 mm across and 57.1 mm deep), so it is small for a toddler. The other letters are wider than that opening. Supervise play the way you would with any small child's toy.
+The **I** is 24.4 × 43.4 × 11.0 mm. That fits a small-parts cylinder (31.7 mm across and 57.1 mm deep), so it is small for a toddler. The other letters are wider than that opening. Supervise play the way you would with any small child's toy.
 
 ## Regenerating the files
 

@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """Generate a wooden-style VICTOR name puzzle sized for a Bambu Lab P2S.
 
-The row is scaled so the glued board is 256 mm wide, the full P2S bed.
-It is still two pieces, VIC and TOR, so each half prints with room around
-it. The wood between every pair of letters is the same. The key hangs on
-the bottom edge, under the seam, so it does not push C and T apart. Slide
-the key down into the socket, then glue the seam if the board should be
-picked up as one piece. Letter thickness stays 11 mm, and each slot stays
-0.40 mm larger than its letter.
+The row is one solid board, scaled so it fits the 256 mm P2S bed with a
+few millimetres to spare. The wood between every pair of letters is the
+same. Letter thickness stays 11 mm, and each slot stays 0.40 mm larger
+than its letter.
 
 Each slot is that letter's outline. O and R keep their counters, so the
 board has a matching island. The slot is 0.40 mm larger than the letter.
@@ -33,28 +30,21 @@ FONT = ROOT / "fonts" / "LilitaOne-Regular.ttf"
 STL_DIR = ROOT / "stl"
 PREVIEW_DIR = ROOT / "preview"
 NAME = "VICTOR"
-# Left of the key, then right. The key is on the VIC piece.
-LEFT_NAME = "VIC"
-RIGHT_NAME = "TOR"
 
 # Millimetres. The P2S build volume is 256 x 256 x 256.
 # The in-plane sizes below are the printed FINN letter size. apply_plan_scale
-# shrinks them until the glued board is exactly one bed wide. Thickness and
-# the slot clearance stay put, so the letters remain 11 mm and a close fit.
+# shrinks them until the solid board fits the bed with 4 mm to spare on
+# each side. Thickness and the slot clearance stay put.
 BED = 256.0
-TARGET_WIDTH = BED
+# 4 mm of bed is kept clear on each side, plus a little so rounding
+# cannot push the board onto the edge.
+TARGET_WIDTH = BED - 8.5
 PLAN_SCALE = 1.0
 _FULL_FONT = 90.874509
 _FULL_FRAME_X = 13.0
 _FULL_FRAME_Y = 14.0
 _FULL_GAP = 10.0
 _FULL_CORNER = 11.0
-_FULL_KEY_WALL = 3.0
-_FULL_KEY_WOOD = 5.0
-_FULL_KEY_ROOT = 8.0
-_FULL_NECK = 13.0
-_FULL_BULB_R = 9.0
-_FULL_BULB_CX = 12.0
 FONT_SIZE = _FULL_FONT
 FIT_CLEARANCE = 0.40
 FRAME_X = _FULL_FRAME_X
@@ -69,23 +59,13 @@ BOTTOM_LEAD = 0.30
 # Bambu Studio lays plates on a grid of bed * (1 + 1/5). Plate 2 starts here.
 PLATE_STRIDE = BED * 1.2
 
-# Wood between neighboring slots. Every pair, including C and T, uses this.
+# Wood between neighboring slots. Every pair uses this.
 LETTER_GAP = _FULL_GAP
-# The key hangs below the bottom edge. The neck is narrower than the bulb,
-# so the halves cannot pull apart sideways. They slide together along Z.
-JOINT_CLEARANCE = 0.35
-KEY_WALL = _FULL_KEY_WALL
-KEY_WOOD = _FULL_KEY_WOOD
-KEY_ROOT = _FULL_KEY_ROOT
-NECK_W = _FULL_NECK
-BULB_R = _FULL_BULB_R
-BULB_CX = _FULL_BULB_CX
 
 
 def apply_plan_scale(scale: float) -> None:
-    """Shrink the row. Thickness, slot clearance, and key clearance stay fixed."""
+    """Shrink the row. Thickness and slot clearance stay fixed."""
     global PLAN_SCALE, FONT_SIZE, FRAME_X, FRAME_Y, LETTER_GAP, BOARD_CORNER_R
-    global KEY_WALL, KEY_WOOD, KEY_ROOT, NECK_W, BULB_R, BULB_CX
     if not 0.45 <= scale <= 1.0:
         raise SystemExit(f"plan scale {scale:.3f} is outside a sensible range")
     PLAN_SCALE = scale
@@ -94,12 +74,6 @@ def apply_plan_scale(scale: float) -> None:
     FRAME_Y = _FULL_FRAME_Y * scale
     LETTER_GAP = _FULL_GAP * scale
     BOARD_CORNER_R = _FULL_CORNER * scale
-    KEY_WALL = _FULL_KEY_WALL * scale
-    KEY_WOOD = _FULL_KEY_WOOD * scale
-    KEY_ROOT = _FULL_KEY_ROOT * scale
-    NECK_W = _FULL_NECK * scale
-    BULB_R = _FULL_BULB_R * scale
-    BULB_CX = _FULL_BULB_CX * scale
 
 
 COLORS = {
@@ -214,15 +188,6 @@ def letter_pocket(letter: cq.Workplane, clearance: float) -> cq.Workplane:
     return pocket
 
 
-def _rect(x0: float, x1: float, y0: float, y1: float, h: float) -> cq.Workplane:
-    return (
-        cq.Workplane("XY")
-        .center((x0 + x1) / 2.0, (y0 + y1) / 2.0)
-        .rect(x1 - x0, y1 - y0)
-        .extrude(h)
-    )
-
-
 def _try_top_fillet(shape: cq.Workplane, label: str) -> cq.Workplane:
     try:
         filleted = shape.faces(">Z").edges().fillet(OUTER_EDGE_R)
@@ -234,102 +199,31 @@ def _try_top_fillet(shape: cq.Workplane, label: str) -> cq.Workplane:
     return shape
 
 
-def make_tab(seam: float, shape_top: float, height: float) -> cq.Workplane:
-    """Key on the bottom edge of VIC.
-
-    The neck bites KEY_ROOT millimetres into the board and rises to shape_top,
-    so the union is a real overlap rather than a sliver. The bulb hangs below
-    the edge and is wider than the neck.
-    """
-    cy = shape_top - BULB_R
-    neck = (
-        cq.Workplane("XY")
-        .center(seam + (BULB_CX - KEY_ROOT) / 2.0, cy)
-        .rect(BULB_CX + KEY_ROOT, NECK_W)
-        .extrude(height)
-    )
-    # The cap stays on the VIC side of the seam and reaches up into the frame,
-    # so the hanging key is fused to the board. It does not widen the socket.
-    cap_bottom = cy + NECK_W / 2.0
-    cap = (
-        cq.Workplane("XY")
-        .center(seam - KEY_ROOT / 2.0, (shape_top + min(cap_bottom, 0.0)) / 2.0)
-        .rect(KEY_ROOT, shape_top - min(cap_bottom, 0.0))
-        .extrude(height)
-    )
-    bulb = (
-        cq.Workplane("XY")
-        .center(seam + BULB_CX, cy)
-        .circle(BULB_R)
-        .extrude(height)
-    )
-    tab = neck.union(cap).union(bulb)
-    if len(tab.solids().vals()) != 1 or not tab.val().isValid():
-        raise SystemExit("puzzle key is not a single solid")
-    return tab
-
-
-def socket_from_tab(tab: cq.Workplane, clearance: float, height: float) -> cq.Workplane:
-    """Cutter for the TOR socket: the key, grown by clearance, through the board."""
-    wire = tab.faces("<Z").val().outerWire()
-    wire = wire.translate((0, 0, -wire.Center().z))
-    grown = wire.offset2D(clearance, "arc")
-    if len(grown) != 1:
-        raise SystemExit(f"socket offset produced {len(grown)} outlines")
-    socket = cq.Workplane("XY").add(grown[0]).toPending().extrude(height + 2.0).translate((0, 0, -1.0))
-    if not socket.val().isValid() or len(socket.solids().vals()) != 1:
-        raise SystemExit("socket cutter is not a single solid")
-    return socket
-
-
-def housing_from_tab(tab: cq.Workplane, seam: float, height: float) -> cq.Workplane:
-    """Wall around the socket. Anything left of the seam is cut away."""
-    wire = tab.faces("<Z").val().outerWire()
-    wire = wire.translate((0, 0, -wire.Center().z))
-    grown = wire.offset2D(JOINT_CLEARANCE + KEY_WALL, "arc")
-    if len(grown) != 1:
-        raise SystemExit(f"key housing offset produced {len(grown)} outlines")
-    housing = cq.Workplane("XY").add(grown[0]).toPending().extrude(height)
-    clip = (
-        cq.Workplane("XY")
-        .box(400, 400, height + 20, centered=(True, True, True))
-        .translate((seam + JOINT_CLEARANCE - 200, 0, height / 2.0))
-    )
-    housing = housing.cut(clip)
-    if len(housing.solids().vals()) != 1 or not housing.val().isValid():
-        raise SystemExit("key housing is not a single solid")
-    return housing
-
-
-def build_boards(
+def build_board(
     layout: dict, raw_letters: list[cq.Workplane]
-) -> tuple[cq.Workplane, cq.Workplane, list[cq.Workplane], cq.Workplane]:
+) -> tuple[cq.Workplane, list[cq.Workplane]]:
+    """One solid board. The slots are cut out of it."""
     board_h = FLOOR + WELL_DEPTH
-    depth = layout["board_d"]
-    seam = layout["seam"]
     board_w = layout["board_w"]
-
-    left = _rect(0, seam, 0, depth, board_h).edges("|Z and <X").fillet(BOARD_CORNER_R)
-    right = _rect(seam + JOINT_CLEARANCE, board_w, 0, depth, board_h).edges("|Z and >X").fillet(BOARD_CORNER_R)
-    tab = make_tab(seam, layout["shape_top"], board_h)
-    socket = socket_from_tab(tab, JOINT_CLEARANCE, board_h)
-    housing = housing_from_tab(tab, seam, board_h)
-    left = left.union(tab)
-    right = right.union(housing).cut(socket)
-    left = _try_top_fillet(left, "VIC")
-    right = _try_top_fillet(right, "TOR")
+    board_d = layout["board_d"]
+    board = (
+        cq.Workplane("XY")
+        .center(board_w / 2.0, board_d / 2.0)
+        .rect(board_w, board_d)
+        .extrude(board_h)
+        .edges("|Z")
+        .fillet(BOARD_CORNER_R)
+    )
+    board = _try_top_fillet(board, "board")
 
     pockets = []
-    for index, (well, letter) in enumerate(zip(layout["wells"], raw_letters)):
+    for well, letter in zip(layout["wells"], raw_letters):
         pocket = letter_pocket(letter, FIT_CLEARANCE)
         dx, dy, _ = shift_for(letter, well, 0.0)
         pocket = pocket.translate((dx, dy, FLOOR))
         pockets.append(pocket)
-        if index < len(LEFT_NAME):
-            left = left.cut(pocket)
-        else:
-            right = right.cut(pocket)
-    return left, right, pockets, socket
+        board = board.cut(pocket)
+    return board, pockets
 
 
 def _place_pocket(pocket: cq.Workplane, bb: cq.BoundBox, x0: float, y0: float, letter_h: float) -> cq.Workplane:
@@ -354,18 +248,6 @@ def _x_for_gap(prev: cq.Workplane, pocket: cq.Workplane, bb: cq.BoundBox, y0: fl
         if abs(error) < 0.02:
             break
         x += error
-    return x
-
-
-def _seam_x(c_pocket: cq.Workplane, t_pocket: cq.Workplane, depth: float) -> float:
-    """A vertical cut halfway between the C slot and the T slot."""
-    c_bb = bbox_of(c_pocket)
-    t_bb = bbox_of(t_pocket)
-    x = (c_bb.xmax + t_bb.xmin) / 2.0
-    plane = _rect(x - 0.02, x + 0.02, -30, depth + 30, 40)
-    clear = min(min_distance(c_pocket.val(), plane.val()), min_distance(t_pocket.val(), plane.val()))
-    if clear < 4.0 * PLAN_SCALE:
-        raise SystemExit(f"the seam only has {clear:.2f} mm of wood beside the letters")
     return x
 
 
@@ -397,19 +279,11 @@ def layout_for(raw_letters: list[cq.Workplane]) -> dict:
             print(f"  gap before {NAME[index]}: {wood:.2f} mm")
     board_w = wells[-1]["x0"] + wells[-1]["w"] + FRAME_X
     board_d = FRAME_Y + letter_h + FRAME_Y
-    seam = _seam_x(placed[len(LEFT_NAME) - 1], placed[len(LEFT_NAME)], board_d)
-    pocket_ymin = min(bbox_of(placed[len(LEFT_NAME) - 1]).ymin, bbox_of(placed[len(LEFT_NAME)]).ymin)
-    shape_top = pocket_ymin - KEY_WOOD - JOINT_CLEARANCE - KEY_WALL
-    if shape_top < 4.0 * PLAN_SCALE:
-        raise SystemExit("the bottom frame is too thin for the key")
     return {
         "wells": wells,
         "board_w": board_w,
         "board_d": board_d,
         "letter_h": letter_h,
-        "seam": seam,
-        "shape_top": shape_top,
-        "key_y": shape_top - BULB_R,
         "gap": FIT_CLEARANCE,
     }
 
@@ -632,7 +506,7 @@ def write_3mf(path: Path, objects: list[dict]) -> None:
     model_settings = f'''<?xml version="1.0" encoding="UTF-8"?>
 <config>
 {chr(10).join(model_objects)}
-{plate_xml(1, "Boards")}
+{plate_xml(1, "Board")}
 {plate_xml(2, "Letters")}
   <assemble>
     {''.join(assemble_items)}
@@ -703,28 +577,21 @@ def _actor(shape: cq.Workplane, rgb: tuple[float, float, float], specular: float
 
 
 def render(
-    boards: list[cq.Workplane],
+    board: cq.Workplane,
     placed: list[cq.Workplane],
     lifted_index: int,
     path: Path,
     kind: str,
-    seam: float,
-    key_y: float,
 ) -> None:
     import vtk
 
-    separate = 36.0 if kind == "joint" else 0.0
     ren = vtk.vtkRenderer()
     ren.SetBackground(0.93, 0.91, 0.86)
-    shown_boards = [boards[0], boards[1].translate((separate, 0, 0))]
-    for board in shown_boards:
-        ren.AddActor(_actor(board, COLORS["board"], 0.12))
+    ren.AddActor(_actor(board, COLORS["board"], 0.12))
     for i, letter in enumerate(placed):
-        if kind in ("holes", "joint"):
+        if kind == "holes":
             continue
         shape = letter
-        if i >= len(LEFT_NAME):
-            shape = shape.translate((separate, 0, 0))
         if i == lifted_index and kind == "top":
             continue
         if i == lifted_index and kind == "angle":
@@ -740,15 +607,11 @@ def render(
 
     ren.ResetCamera()
     cam = ren.GetActiveCamera()
-    bb = bbox_of(boards[0])
-    bb2 = bbox_of(shown_boards[1])
-    fx = (bb.xmin + bb2.xmax) / 2.0
-    fy = (min(bb.ymin, bb2.ymin) + max(bb.ymax, bb2.ymax)) / 2.0
-    span_x = bb2.xmax - bb.xmin
-    span_y = max(bb.ymax, bb2.ymax) - min(bb.ymin, bb2.ymin)
-    if kind == "joint":
-        fx = seam + separate / 2.0
-        fy = key_y
+    bb = bbox_of(board)
+    fx = bb.center.x
+    fy = bb.center.y
+    span_x = bb.xlen
+    span_y = bb.ylen
     if kind == "top":
         cam.SetParallelProjection(True)
         cam.SetFocalPoint(fx, fy, 0)
@@ -762,14 +625,9 @@ def render(
         cam.SetFocalPoint(fx, fy, 6)
         cam.SetPosition(fx, fy - 900, 6)
         ren.ResetCamera()
-        if kind == "joint":
-            cam.SetFocalPoint(fx, fy, 4)
-            cam.SetPosition(fx - 30, fy - 150, 120)
-            cam.SetViewUp(0, 0, 1)
-        else:
-            cam.Azimuth(16 if kind == "angle" else 12)
-            cam.Elevation(36 if kind == "angle" else 55)
-            cam.Zoom(1.15 if kind == "angle" else 1.22)
+        cam.Azimuth(16 if kind == "angle" else 12)
+        cam.Elevation(36 if kind == "angle" else 55)
+        cam.Zoom(1.15 if kind == "angle" else 1.22)
         cam.OrthogonalizeViewUp()
     ren.ResetCameraClippingRange()
 
@@ -870,10 +728,8 @@ def _fits_on_plate(origin: tuple[float, float, float], size: tuple[float, float]
 def main() -> None:
     if not FONT.exists():
         raise SystemExit(f"Missing font: {FONT}")
-    if NECK_W >= 2 * BULB_R - 1:
-        raise SystemExit("puzzle key would pull apart sideways")
 
-    print(f"Fitting VICTOR to the {TARGET_WIDTH:.0f} mm bed...")
+    print(f"Fitting VICTOR onto one {TARGET_WIDTH:.0f} mm board...")
     # The full-size row is 360.8 mm. One correction is enough because width
     # tracks the plan scale almost exactly.
     scale = TARGET_WIDTH / 360.83
@@ -886,44 +742,32 @@ def main() -> None:
             assert_single_piece(letter, f"raw {ch}")
         layout = layout_for(raw)
         print(f"  scale {scale:.4f} -> board {layout['board_w']:.2f} mm")
-        if abs(layout["board_w"] - TARGET_WIDTH) < 0.4:
+        if layout["board_w"] > TARGET_WIDTH:
+            scale *= TARGET_WIDTH / layout["board_w"]
+            continue
+        if TARGET_WIDTH - layout["board_w"] < 0.4:
             break
         scale *= TARGET_WIDTH / layout["board_w"]
-    if abs(layout["board_w"] - TARGET_WIDTH) > 0.6:
-        raise SystemExit(f"board is {layout['board_w']:.2f} mm, wanted {TARGET_WIDTH:.0f}")
+    if layout["board_w"] > TARGET_WIDTH + 0.05:
+        raise SystemExit(f"board is {layout['board_w']:.2f} mm, wanted at most {TARGET_WIDTH:.0f}")
     print(f"  letters at font {FONT_SIZE:.2f}, wood between letters {LETTER_GAP:.2f} mm")
     for ch, letter in zip(NAME, raw):
         bb = bbox_of(letter)
         print(f"  {ch} {bb.xlen:.1f} x {bb.ylen:.1f} x {bb.zlen:.1f}")
-    print(
-        f"  assembled board {layout['board_w']:.1f} x {layout['board_d']:.1f} mm, seam at {layout['seam']:.1f}"
-    )
-    for half_bb in (layout["board_w"], layout["board_d"]):
-        if half_bb > BED - 8 and half_bb == layout["board_d"]:
-            raise SystemExit("Board depth does not fit the P2S bed")
-    print("  cutting letter slots and the puzzle key...")
-    left, right, pockets, socket = build_boards(layout, raw)
-    assert_single_piece(left, "VIC board")
-    assert_single_piece(right, "TOR board")
+    print(f"  board {layout['board_w']:.1f} x {layout['board_d']:.1f} mm")
+    if layout["board_w"] > BED - 8 or layout["board_d"] > BED - 8:
+        raise SystemExit("Board does not fit the P2S bed with margin")
+    print("  cutting letter slots...")
+    board, pockets = build_board(layout, raw)
+    assert_single_piece(board, "board")
 
-    left_bb = bbox_of(left)
-    right_bb = bbox_of(right)
-    print(f"  VIC piece {left_bb.xlen:.1f} x {left_bb.ylen:.1f} x {left_bb.zlen:.1f}")
-    print(f"  TOR piece {right_bb.xlen:.1f} x {right_bb.ylen:.1f} x {right_bb.zlen:.1f}")
+    board_bb = bbox_of(board)
+    print(f"  board piece {board_bb.xlen:.1f} x {board_bb.ylen:.1f} x {board_bb.zlen:.1f}")
     board_h = FLOOR + WELL_DEPTH
-    if abs(left_bb.zlen - board_h) > 0.05 or abs(right_bb.zlen - board_h) > 0.05:
-        raise SystemExit("a board piece is not the board thickness")
-    for label, bb in (("VIC", left_bb), ("TOR", right_bb)):
-        if bb.xlen > BED - 8 or bb.ylen > BED - 8:
-            raise SystemExit(f"{label} does not fit the P2S bed with margin")
-
-    overlap = solid_volume(left.intersect(right))
-    gap = min_distance(left.val(), right.val())
-    print(f"  key clearance {gap:.2f} mm, overlap {overlap:.3f} mm^3")
-    if overlap > 0.05:
-        raise SystemExit("the two board pieces intersect")
-    if not 0.25 <= gap <= 0.50:
-        raise SystemExit(f"puzzle key clearance is {gap:.2f} mm, expected about {JOINT_CLEARANCE:.2f}")
+    if abs(board_bb.zlen - board_h) > 0.05:
+        raise SystemExit("the board is not the expected thickness")
+    if board_bb.xlen > BED - 8 or board_bb.ylen > BED - 8:
+        raise SystemExit("the board does not fit the P2S bed with margin")
 
     woods = []
     for index in range(len(pockets) - 1):
@@ -932,18 +776,10 @@ def main() -> None:
         print(f"  wood between slot {index + 1} and {index + 2}: {wood:.2f} mm")
     if max(woods) - min(woods) > 0.25 or abs(sum(woods) / len(woods) - LETTER_GAP) > 0.25:
         raise SystemExit(f"letter gaps are not equal: {woods}")
-    for index, pocket in enumerate(pockets):
-        wood = min_distance(pocket.val(), socket.val())
-        if wood < 4.5 * PLAN_SCALE:
-            raise SystemExit(f"slot {index + 1} breaks into the puzzle key ({wood:.2f} mm)")
-
-    def owner(index: int) -> cq.Workplane:
-        return left if index < len(LEFT_NAME) else right
 
     placed_raw = [place_letter(letter, well, FLOOR) for letter, well in zip(raw, layout["wells"])]
     clearances = []
-    for index, (ch, letter) in enumerate(zip(NAME, placed_raw)):
-        board = owner(index)
+    for ch, letter in zip(NAME, placed_raw):
         hit = solid_volume(board.intersect(letter))
         if hit > 0.05:
             raise SystemExit(f"{ch} intersects its own slot by {hit:.3f} mm^3")
@@ -958,7 +794,7 @@ def main() -> None:
             if piece_i == slot_i:
                 continue
             moved = place_letter(raw[piece_i], layout["wells"][slot_i], FLOOR)
-            clash = solid_volume(owner(slot_i).intersect(moved))
+            clash = solid_volume(board.intersect(moved))
             print(f"  {piece_ch} in the {slot_ch} slot clashes by {clash:.0f} mm^3")
             if clash < 200.0 * PLAN_SCALE * PLAN_SCALE:
                 raise SystemExit(f"{piece_ch} fits the {slot_ch} slot")
@@ -971,8 +807,8 @@ def main() -> None:
         assert_single_piece(letters[-1], ch)
 
     placed = [place_letter(letter, well, FLOOR) for letter, well in zip(letters, layout["wells"])]
-    for index, (ch, letter) in enumerate(zip(NAME, placed)):
-        hit = solid_volume(owner(index).intersect(letter))
+    for ch, letter in zip(NAME, placed):
+        hit = solid_volume(board.intersect(letter))
         if hit > 0.05:
             raise SystemExit(f"Softened {ch} hits the board ({hit:.3f} mm^3)")
         bb = bbox_of(letter)
@@ -998,12 +834,8 @@ def main() -> None:
 
     print("Exporting STL...")
     STL_DIR.mkdir(parents=True, exist_ok=True)
-    board_paths = {
-        "VIC": STL_DIR / "victor_board_vic.stl",
-        "TOR": STL_DIR / "victor_board_tor.stl",
-    }
-    export_stl(to_bed(left), board_paths["VIC"], 0.08, 0.1)
-    export_stl(to_bed(right), board_paths["TOR"], 0.08, 0.1)
+    board_path = STL_DIR / "victor_board.stl"
+    export_stl(to_bed(board), board_path, 0.08, 0.1)
     letter_paths = {}
     bed_letters = []
     for ch, letter in zip(NAME, letters):
@@ -1013,27 +845,17 @@ def main() -> None:
         letter_paths[ch] = path
         bed_letters.append(bed)
 
-    for path in [*board_paths.values(), *letter_paths.values()]:
+    for path in [board_path, *letter_paths.values()]:
         tris, boundary = mesh_is_closed(path)
         print(f"  {path.name}: {tris} triangles, {boundary} open edges")
         if tris < 100 or boundary != 0:
             raise SystemExit(f"{path.name} is not a closed mesh")
 
     print("Writing 3MF plates...")
-    bed_left = to_bed(left)
-    bed_right = to_bed(right)
-    left_size = bbox_of(bed_left)
-    right_size = bbox_of(bed_right)
-    bodies = left_size.ylen + right_size.ylen
-    gap_y = min(12.0, BED - bodies - 8.0)
-    if gap_y < 6.0:
-        raise SystemExit("the two board halves do not fit on one plate")
-    stack_h = bodies + gap_y
-    y0 = (BED - stack_h) / 2.0
-    left_pos = ((BED - left_size.xlen) / 2.0, y0, 0.0)
-    right_pos = ((BED - right_size.xlen) / 2.0, y0 + left_size.ylen + gap_y, 0.0)
-    _fits_on_plate(left_pos, (left_size.xlen, left_size.ylen), 1)
-    _fits_on_plate(right_pos, (right_size.xlen, right_size.ylen), 1)
+    bed_board = to_bed(board)
+    board_size = bbox_of(bed_board)
+    board_pos = ((BED - board_size.xlen) / 2.0, (BED - board_size.ylen) / 2.0, 0.0)
+    _fits_on_plate(board_pos, (board_size.xlen, board_size.ylen), 1)
 
     # Letters sit on plate 2 in two loose rows. Colors are separate prints;
     # this packing is only so the plate opens inside the bed.
@@ -1059,8 +881,7 @@ def main() -> None:
         y += row_h + row_gap
 
     objects = [
-        {"name": "Board VIC", "extruder": 1, "plate": 1, "mesh": stl_mesh(board_paths["VIC"]), "pos": left_pos},
-        {"name": "Board TOR", "extruder": 1, "plate": 1, "mesh": stl_mesh(board_paths["TOR"]), "pos": right_pos},
+        {"name": "Board", "extruder": 1, "plate": 1, "mesh": stl_mesh(board_path), "pos": board_pos},
     ]
     for index, ch in enumerate(NAME):
         objects.append(
@@ -1088,12 +909,10 @@ def main() -> None:
             raise SystemExit("3MF does not contain two plates")
 
     print("Rendering previews...")
-    boards = [left, right]
-    render(boards, placed, 4, PREVIEW_DIR / "victor_puzzle_angle.png", "angle", layout["seam"], layout["key_y"])
-    render(boards, placed, -1, PREVIEW_DIR / "victor_puzzle_seated.png", "angle", layout["seam"], layout["key_y"])
-    render(boards, placed, 4, PREVIEW_DIR / "victor_puzzle_top.png", "top", layout["seam"], layout["key_y"])
-    render(boards, placed, -1, PREVIEW_DIR / "victor_puzzle_holes.png", "holes", layout["seam"], layout["key_y"])
-    render(boards, placed, -1, PREVIEW_DIR / "victor_puzzle_joint.png", "joint", layout["seam"], layout["key_y"])
+    render(board, placed, 4, PREVIEW_DIR / "victor_puzzle_angle.png", "angle")
+    render(board, placed, -1, PREVIEW_DIR / "victor_puzzle_seated.png", "angle")
+    render(board, placed, 4, PREVIEW_DIR / "victor_puzzle_top.png", "top")
+    render(board, placed, -1, PREVIEW_DIR / "victor_puzzle_holes.png", "holes")
 
     def grams(shape: cq.Workplane, shell_fraction: float) -> float:
         return shape.val().Volume() / 1000.0 * 1.24 * shell_fraction
@@ -1105,22 +924,17 @@ def main() -> None:
         "board_w": layout["board_w"],
         "board_d": layout["board_d"],
         "board_h": FLOOR + WELL_DEPTH,
-        "vic_w": left_bb.xlen,
-        "vic_d": left_bb.ylen,
-        "tor_w": right_bb.xlen,
-        "tor_d": right_bb.ylen,
         "well_depth": WELL_DEPTH,
         "letter_thick": LETTER_THICK,
         "proud": LETTER_THICK - WELL_DEPTH,
         "fit_clearance": FIT_CLEARANCE,
-        "joint_clearance": gap,
         "measured_clearance": clearances,
         "floor": FLOOR,
         "letters_mm": [
             (ch, round(bbox_of(letter).xlen, 1), round(bbox_of(letter).ylen, 1))
             for ch, letter in zip(NAME, letters)
         ],
-        "board_g": grams(left, 0.45) + grams(right, 0.45),
+        "board_g": grams(board, 0.45),
         "letters_g": [grams(letter, 0.55) for letter in letters],
     }
     (ROOT / "build_info.txt").write_text(
