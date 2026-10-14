@@ -1,0 +1,260 @@
+@font-face {
+  font-family: "Lilita One";
+  src: url("/fonts/LilitaOne-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --ink: #2c2118;
+  --muted: #6d5b49;
+  --paper: #f6efe4;
+  --card: #fffaf3;
+  --line: #e2d3bc;
+  --red: #db382e;
+  --red-dark: #b72c24;
+  --shadow: 0 18px 40px rgba(70, 42, 18, 0.08);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  color: var(--ink);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background:
+    radial-gradient(900px 420px at 0% -10%, #fff8ee, transparent 55%),
+    radial-gradient(700px 380px at 100% 0%, #f3d7b4, transparent 45%),
+    var(--paper);
+}
+
+button, input, a { font: inherit; }
+
+.app {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 22px 18px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.top h1 {
+  margin: 0;
+  font-family: "Lilita One", "Arial Rounded MT Bold", sans-serif;
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  line-height: 0.95;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lede {
+  max-width: 38rem;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.form label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+input[type="text"], input:not([type]) {
+  flex: 1 1 220px;
+  min-width: 0;
+  border: 1.5px solid var(--line);
+  background: white;
+  color: var(--ink);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 1.15rem;
+}
+
+input:focus {
+  outline: 3px solid rgba(219, 56, 46, 0.25);
+  border-color: var(--red);
+}
+
+button, .download {
+  border: 0;
+  border-radius: 14px;
+  background: var(--red);
+  color: white;
+  padding: 14px 18px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button:hover, .download:hover { background: var(--red-dark); }
+
+button:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.status {
+  min-height: 1.4em;
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+  gap: 16px;
+  min-height: 520px;
+}
+
+.stage.solo { grid-template-columns: minmax(0, 1fr); }
+
+.viewer {
+  position: relative;
+  display: flex;
+  min-height: 420px;
+  height: 100%;
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fbf6ee, #e7d8c2);
+  box-shadow: var(--shadow);
+}
+
+canvas {
+  flex: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  touch-action: none;
+}
+
+.empty, .hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  pointer-events: none;
+}
+
+.empty {
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-family: "Lilita One", sans-serif;
+  font-size: 1.5rem;
+}
+
+.hint {
+  bottom: 14px;
+  color: rgba(44, 33, 24, 0.62);
+  font-size: 0.88rem;
+}
+
+.details {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 18px 18px 16px;
+  box-shadow: var(--shadow);
+}
+
+.details h2 {
+  margin: 0;
+  font-family: "Lilita One", sans-serif;
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+.size {
+  margin: 6px 0 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.note, .print-note, .warnings {
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.92rem;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chips li {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: white;
+  font-family: "Lilita One", sans-serif;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+
+.warnings {
+  background: #fff4df;
+  color: #6a4a12;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.download { width: 100%; margin: 8px 0 12px; }
+
+.foot {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 800px) {
+  .app { padding: 18px 14px 14px; }
+  .stage, .stage.solo {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .viewer {
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 5 / 4;
+  }
+  canvas {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    height: 100%;
+  }
+}

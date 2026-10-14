@@ -1,5 +1,6 @@
-# FINN name puzzle
+# Name puzzles
 
-A 3D-printable name puzzle for a Bambu Lab P2S: a chunky wooden-style board and the letters F I N N, each in a matching slot.
+Printable wooden-style name puzzles for a Bambu Lab P2S.
 
-Print files, colors, and slicer settings are in [finn-name-puzzle/README.md](finn-name-puzzle/README.md).
+- [Name puzzle app](name-puzzle-app/README.md) — type a name, look at the board, and download a 3MF.
+- [FINN](finn-name-puzzle/README.md) — the printed puzzle this letter size is based on.
