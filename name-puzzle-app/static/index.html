@@ -13,7 +13,7 @@
         <p class="eyebrow">Bambu Lab P2S</p>
         <h1>Name puzzle</h1>
       </div>
-      <p class="lede">Type a name. The board and the letters show up here, and you can download the print file.</p>
+      <p class="lede">Type a name. The board is turned 45° on the bed so a longer name still fits. You can add magnet pockets, then download the print file.</p>
     </header>
 
     <form id="form" class="form">
@@ -22,7 +22,11 @@
         <input id="name" name="name" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Finn" required>
         <button type="submit" id="make">Make puzzle</button>
       </div>
-      <p id="status" class="status" role="status" aria-live="polite">Letters A to Z. Up to 12. A long name is scaled to fit the bed.</p>
+      <label class="option" for="magnets">
+        <input id="magnets" type="checkbox">
+        <span>Add 5×2 mm magnets. Each letter gets 1 or 2, the board gets a matching pocket, and the print pauses so the magnets can be dropped in.</span>
+      </label>
+      <p id="status" class="status" role="status" aria-live="polite">Letters A to Z, up to 12. The board is turned 45° on the bed.</p>
     </form>
 
     <div class="stage solo" id="stage">
@@ -37,8 +41,9 @@
         <p id="scale-note" class="note"></p>
         <ul id="chips" class="chips"></ul>
         <p id="warnings" class="warnings" hidden></p>
+        <p id="magnet-note" class="note" hidden></p>
         <a id="download" class="download" href="#">Download 3MF</a>
-        <p class="print-note">Plate 1 is the board and plate 2 is the letters. Print the board slots up, at 0.20 mm, with 9 top and 9 bottom shells so the floor stays solid. Turn ironing off, and set the brim to none.</p>
+        <p class="print-note">Plate 1 is the board. Each later plate holds at most 4 letters, flipped so the shiny bed surface becomes the top of the puzzle. Print the board slots up, at 0.20 mm, with 9 top and 9 bottom shells so the floor stays solid. Turn ironing off, and set the brim to none.</p>
       </aside>
     </div>
 

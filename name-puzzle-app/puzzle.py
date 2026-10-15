@@ -2,18 +2,27 @@
 """Build a wooden-style name puzzle for a Bambu Lab P2S.
 
 The letters are Lilita One, the same chunky face as the printed FINN puzzle.
-A short name stays at that size. A longer name is scaled down in the plane
-until the board fits the 256 mm bed with a few millimetres to spare.
+The board is always turned 45 degrees on the bed, so a longer name can use
+the diagonal. A short name stays at the FINN letter size. A longer name is
+scaled down in the plane until that turned board still clears the bed.
 Thickness stays 11 mm, and every slot stays 0.40 mm larger than its letter.
 
 Each slot is the letter's outline. Counters (O, R, A, B, and the rest) stay
 in the board as islands. The 3MF is a closed mesh and a single-nozzle P2S
-project: plate 1 is the board, plate 2 is the letters.
+project: plate 1 is the board, and the letters follow with at most four per plate.
+
+Each letter is flipped for printing, so the face that sits on the bed is the
+face that shows on top of the finished puzzle. That bed face is the shiny one.
+
+Optional 5x2 mm magnet pockets sit inside each letter (one or two) and in the
+board floor under that letter. The project pauses before the layer that
+covers them.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import struct
 import sys
 import time
@@ -23,7 +32,10 @@ from collections.abc import Callable
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-import cadquery as cq
+try:
+    import cadquery as cq
+except ModuleNotFoundError:
+    cq = None  # type: ignore[assignment]
 
 ROOT = Path(__file__).resolve().parent
 FONT = ROOT / "fonts" / "LilitaOne-Regular.ttf"
@@ -47,9 +59,41 @@ FLOOR = 3.5
 WELL_DEPTH = 7.0
 LETTER_THICK = 11.0
 OUTER_EDGE_R = 1.6
+# 5x2 mm discs. The pocket is a little wider and a little deeper so a magnet
+# from a loose batch drops in and sits below the layer that closes over it.
+LAYER = 0.20
+MAGNET_D = 5.0
+MAGNET_T = 2.0
+POCKET_D = 5.4
+POCKET_H = 2.2
+POCKET_R = POCKET_D / 2.0
+# Two bottom layers, then the pocket. The pause is the next layer line,
+# which is the first layer that covers the magnet.
+LETTER_SKIN = 0.40
+LETTER_CAVITY_TOP = LETTER_SKIN + POCKET_H
+# Letters are flipped before printing, so this skin is the last part printed.
+# The pause is the first of those cover layers.
+LETTER_PAUSE_Z = round(LETTER_THICK - LETTER_SKIN + LAYER, 2)
+# The board floor is 3.5 mm. The pocket ends on a layer line and leaves
+# 0.5 mm of floor over the magnet, under the slot.
+BOARD_CAVITY_TOP = 3.0
+BOARD_CAVITY_BOTTOM = BOARD_CAVITY_TOP - POCKET_H
+BOARD_PAUSE_Z = BOARD_CAVITY_TOP + LAYER
+# Bambu's own pause. The printer waits here until the resume button is pressed.
+PAUSE_GCODE = "M400 U1"
 # Bambu Studio lays plates on a grid of bed * (1 + 1/5). Plate 2 starts here.
 PLATE_STRIDE = BED * 1.2
 MAX_LETTERS = 12
+MAX_LETTERS_PER_PLATE = 4
+
+_CADQUERY_HINT = (
+    "CadQuery is not installed in this Python. The backend virtualenv is "
+    "Python 3.9, and this app needs Python 3.11 or newer. On a Mac, "
+    "Homebrew's Python works: brew install python@3.11. Then, from the "
+    "name-puzzle-app folder, run: python3.11 -m venv .venv && "
+    "source .venv/bin/activate && pip install -r requirements.txt && "
+    "python -m uvicorn app:app --host 0.0.0.0 --port 8000"
+)
 
 BOARD_COLOR = "#E8C794"
 PALETTE = (
@@ -68,6 +112,19 @@ Progress = Callable[[str], None]
 
 class PuzzleError(Exception):
     """A name the app can explain, or a puzzle that failed its own checks."""
+
+
+def cadquery_ready() -> bool:
+    return cq is not None
+
+
+def cadquery_hint() -> str:
+    return _CADQUERY_HINT
+
+
+def require_cadquery() -> None:
+    if cq is None:
+        raise PuzzleError(_CADQUERY_HINT)
 
 
 class Plan:
@@ -398,36 +455,62 @@ def side_clearance(letter: cq.Workplane, board: cq.Workplane, board_w: float, bo
     return min_distance(clipped.val(), board.val())
 
 
-def estimate_full_width(name: str) -> float:
-    """Board width at the full FINN letter size, from bounding boxes.
+def estimate_full_size(name: str) -> tuple[float, float]:
+    """Board width and depth at the full FINN letter size, from bounding boxes.
 
     The real layout measures pocket walls, which sit 0.40 mm outside the
     letter. This estimate is only the first guess; the build measures again.
     """
     probe = 36.0
     widths = []
+    heights = []
     for ch in name:
         bb = bbox_of(make_letter(ch, probe, 2.0))
         widths.append(bb.xlen * (_FULL_FONT / probe))
+        heights.append(bb.ylen * (_FULL_FONT / probe))
     gaps = max(len(name) - 1, 0)
     pitch = _FULL_GAP + 2 * FIT_CLEARANCE
-    return sum(widths) + gaps * pitch + 2 * _FULL_FRAME_X
+    width = sum(widths) + gaps * pitch + 2 * _FULL_FRAME_X
+    depth = max(heights) + 2 * _FULL_FRAME_Y
+    return width, depth
+
+
+def bed_span(length: float, depth: float, corner_r: float) -> float:
+    """How much bed the board covers after it is turned 45 degrees.
+
+    A 45 degree turn makes the footprint a square whose side is
+    (length + depth) / sqrt(2). The rounded corners pull that square in.
+    """
+    corner = min(max(corner_r, 0.0), min(length, depth) / 2.0 - 0.8)
+    relief = 0.0
+    if corner >= 0.4:
+        relief = 2.0 * corner * (math.sqrt(2.0) - 1.0)
+    return (length + depth) / math.sqrt(2.0) - relief
+
+
+def turn_onto_bed(shape: cq.Workplane) -> cq.Workplane:
+    """Turn a board 45 degrees and sit its corner on the bed origin."""
+    bb = bbox_of(shape)
+    spun = shape.rotate((bb.center.x, bb.center.y, 0), (bb.center.x, bb.center.y, 1), 45)
+    return to_bed(spun)
 
 
 def choose_plan(name: str, progress: Progress | None) -> tuple[Plan, list[cq.Workplane], dict]:
     _log(progress, "Measuring the row")
-    estimated = estimate_full_width(name)
-    scale = 1.0 if estimated <= TARGET_WIDTH else TARGET_WIDTH / estimated
+    estimated_w, estimated_d = estimate_full_size(name)
+    span = bed_span(estimated_w, estimated_d, _FULL_CORNER)
+    scale = 1.0 if span <= TARGET_WIDTH else TARGET_WIDTH / span
     if scale < MIN_SCALE:
         raise PuzzleError("That name is too long to fit on one board.")
 
     letters: list[cq.Workplane] = []
     layout: dict = {}
     plan = Plan(scale)
-    for attempt in range(3):
+    measured = span
+    for attempt in range(5):
         plan = Plan(scale)
         if attempt == 0 and scale < 0.995:
-            _log(progress, "Scaling the row so it fits the printer")
+            _log(progress, "Scaling the row so the turned board fits the printer")
         elif attempt:
             _log(progress, "Adjusting the size")
         letters = []
@@ -440,20 +523,21 @@ def choose_plan(name: str, progress: Progress | None) -> tuple[Plan, list[cq.Wor
         layout = layout_for(letters, plan, name, progress)
         board_w = layout["board_w"]
         board_d = layout["board_d"]
-        _log(progress, f"Board is {board_w:.1f} × {board_d:.1f} mm")
-        fits = board_w <= TARGET_WIDTH + 0.05 and board_d <= BED - 8.5
-        if fits and (scale >= 0.999 or TARGET_WIDTH - board_w <= 4.0):
+        measured = bed_span(board_w, board_d, plan.corner_r)
+        _log(progress, f"Board is {board_w:.1f} × {board_d:.1f} mm, {measured:.1f} mm once turned")
+        fits = measured <= TARGET_WIDTH + 0.05
+        if fits and (scale >= 0.999 or TARGET_WIDTH - measured <= 4.0):
             break
         if fits:
-            grown = min(1.0, scale * (TARGET_WIDTH / board_w))
+            grown = min(1.0, scale * (TARGET_WIDTH / measured))
             if grown < scale * 1.015:
                 break
             scale = grown
             continue
-        scale *= min(TARGET_WIDTH / board_w, (BED - 8.5) / board_d)
+        scale *= TARGET_WIDTH / measured
         if scale < MIN_SCALE:
             raise PuzzleError("That name is too long to fit on one board.")
-    if layout["board_w"] > TARGET_WIDTH + 0.05 or layout["board_d"] > BED - 8.5:
+    if measured > TARGET_WIDTH + 0.05:
         raise PuzzleError("The board does not fit the printer.")
     return plan, letters, layout
 
@@ -559,62 +643,153 @@ def project_settings(colors: list[str]) -> dict:
     }
 
 
-def _fits_on_plate(origin: tuple[float, float, float], size: tuple[float, float], plate: int) -> None:
+def plate_column_count(count: int) -> int:
+    """How many columns Bambu Studio uses for this many plates."""
+    if count <= 1:
+        return 1
+    value = math.sqrt(count)
+    rounded = round(value)
+    if value > rounded:
+        return int(rounded) + 1
+    return int(rounded)
+
+
+def plate_origin(index: int, plate_count: int) -> tuple[float, float]:
+    """World origin of a 0-based plate. Rows step toward -Y, as Studio does."""
+    cols = plate_column_count(plate_count)
+    col = index % cols
+    row = index // cols
+    return (col * PLATE_STRIDE, 0.0 if row == 0 else -row * PLATE_STRIDE)
+
+
+def _fits_on_plate(
+    origin: tuple[float, float, float],
+    size: tuple[float, float],
+    plate: int,
+    plate_count: int,
+) -> None:
     x0, y0, _z = origin
     width, depth = size
-    stride = 0.0 if plate == 1 else PLATE_STRIDE
-    local_x = x0 - stride
-    if local_x < 4 or y0 < 4 or local_x + width > BED - 4 or y0 + depth > BED - 4:
+    ox, oy = plate_origin(plate - 1, plate_count)
+    local_x = x0 - ox
+    local_y = y0 - oy
+    if local_x < 4 or local_y < 4 or local_x + width > BED - 4 or local_y + depth > BED - 4:
         raise PuzzleError(
             f"A part on plate {plate} is {width:.0f} × {depth:.0f} mm and does not fit the bed."
         )
 
 
-def pack_letters(bed_letters: list[cq.Workplane]) -> list[tuple[float, float, float]]:
-    """Lay letters on plate 2 in rows, centered, with a gap a finger can use."""
+def flip_for_print(shape: cq.Workplane) -> cq.Workplane:
+    """Turn a letter over so its top face lies on the bed.
+
+    The bed leaves a shiny surface. That face is the one that shows on top
+    of the finished puzzle. Turning it over, rather than mirroring it, keeps
+    the letter reading the right way once the shiny face is up.
+    """
+    bb = bbox_of(shape)
+    flipped = shape.rotate(
+        (bb.center.x, bb.center.y, bb.center.z),
+        (bb.center.x + 1.0, bb.center.y, bb.center.z),
+        180,
+    )
+    bed = to_bed(flipped)
+    out = bbox_of(bed)
+    if out.zmin > 0.05 or abs(out.zlen - bb.zlen) > 0.05:
+        raise PuzzleError("A letter did not flip onto the bed.")
+    return bed
+
+
+def pack_letters(
+    bed_letters: list[cq.Workplane],
+) -> list[tuple[int, tuple[float, float, float]]]:
+    """Lay letters on later plates, at most four per plate, centered."""
+    groups = [
+        list(range(start, min(start + MAX_LETTERS_PER_PLATE, len(bed_letters))))
+        for start in range(0, len(bed_letters), MAX_LETTERS_PER_PLATE)
+    ]
+    plate_count = 1 + len(groups)
     sizes = [bbox_of(letter) for letter in bed_letters]
     gap = 8.0
     margin = 8.0
     max_w = BED - 2 * margin
-    rows: list[list[int]] = []
-    current: list[int] = []
-    current_w = 0.0
-    for index, size in enumerate(sizes):
-        extra = size.xlen if not current else gap + size.xlen
-        if current and current_w + extra > max_w:
+    placements: list[tuple[int, tuple[float, float, float]] | None] = [None] * len(bed_letters)
+
+    for group_index, group in enumerate(groups):
+        plate = group_index + 2
+        ox, oy = plate_origin(plate - 1, plate_count)
+        rows: list[list[int]] = []
+        current: list[int] = []
+        current_w = 0.0
+        for index in group:
+            extra = sizes[index].xlen if not current else gap + sizes[index].xlen
+            if current and current_w + extra > max_w:
+                rows.append(current)
+                current = [index]
+                current_w = sizes[index].xlen
+            else:
+                current.append(index)
+                current_w += extra
+        if current:
             rows.append(current)
-            current = [index]
-            current_w = size.xlen
-        else:
-            current.append(index)
-            current_w += extra
-    if current:
-        rows.append(current)
+        if len(group) > MAX_LETTERS_PER_PLATE:
+            raise PuzzleError("A plate has more than 4 letters.")
 
-    row_heights = []
-    row_widths = []
-    for row in rows:
-        row_heights.append(max(sizes[i].ylen for i in row))
-        row_widths.append(sum(sizes[i].xlen for i in row) + gap * (len(row) - 1))
-    total_h = sum(row_heights) + gap * (len(rows) - 1)
-    if total_h > BED - 2 * margin:
-        raise PuzzleError("The letters do not fit on the second plate.")
+        row_heights = [max(sizes[i].ylen for i in row) for row in rows]
+        row_widths = [sum(sizes[i].xlen for i in row) + gap * (len(row) - 1) for row in rows]
+        total_h = sum(row_heights) + gap * (len(rows) - 1)
+        if total_h > BED - 2 * margin:
+            raise PuzzleError("The letters do not fit on their plate.")
 
-    positions: list[tuple[float, float, float] | None] = [None] * len(bed_letters)
-    y = (BED - total_h) / 2.0
-    for row, row_w, row_h in zip(rows, row_widths, row_heights):
-        x = PLATE_STRIDE + (BED - row_w) / 2.0
-        for index in row:
-            bb = sizes[index]
-            pos = (x, y + (row_h - bb.ylen) / 2.0, 0.0)
-            _fits_on_plate(pos, (bb.xlen, bb.ylen), 2)
-            positions[index] = pos
-            x += bb.xlen + gap
-        y += row_h + gap
-    return positions  # type: ignore[return-value]
+        y = oy + (BED - total_h) / 2.0
+        for row, row_w, row_h in zip(rows, row_widths, row_heights):
+            x = ox + (BED - row_w) / 2.0
+            for index in row:
+                bb = sizes[index]
+                pos = (x, y + (row_h - bb.ylen) / 2.0, 0.0)
+                _fits_on_plate(pos, (bb.xlen, bb.ylen), plate, plate_count)
+                placements[index] = (plate, pos)
+                x += bb.xlen + gap
+            y += row_h + gap
+    return placements  # type: ignore[return-value]
 
 
-def write_3mf(path: Path, objects: list[dict], colors: list[str], title: str) -> None:
+def _pause_xml(pauses: list[tuple[int, float]]) -> str:
+    """Bambu Studio pause markers. type 1 is PausePrint.
+
+    The command runs at the start of the layer whose top equals top_z, so
+    top_z is the first layer that would cover the magnet.
+    """
+    by_plate: dict[int, list[float]] = {}
+    for plate_id, top_z in pauses:
+        by_plate.setdefault(plate_id, []).append(top_z)
+    blocks = []
+    for plate_id in sorted(by_plate):
+        layers = "\n".join(
+            f'<layer top_z="{top_z:.2f}" type="1" extruder="1" color="" extra="" gcode="{PAUSE_GCODE}"/>'
+            for top_z in by_plate[plate_id]
+        )
+        blocks.append(
+            "<plate>\n"
+            f'<plate_info id="{plate_id}"/>\n'
+            f"{layers}\n"
+            '<mode value="SingleExtruder"/>\n'
+            "</plate>"
+        )
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        "<custom_gcodes_per_layer>\n"
+        + "\n".join(blocks)
+        + "\n</custom_gcodes_per_layer>\n"
+    )
+
+
+def write_3mf(
+    path: Path,
+    objects: list[dict],
+    colors: list[str],
+    title: str,
+    pauses: list[tuple[int, float]] | None = None,
+) -> None:
     """Bambu Studio project for a P2S with a 0.4 mm nozzle and two plates."""
 
     def mesh_xml(verts, tris) -> str:
@@ -627,10 +802,27 @@ def write_3mf(path: Path, objects: list[dict], colors: list[str], title: str) ->
             "</mesh>"
         )
 
+    plate_ids = sorted({int(obj["plate"]) for obj in objects})
+    if plate_ids != list(range(1, len(plate_ids) + 1)):
+        raise PuzzleError("The plates are not numbered in order.")
+    letter_counts = Counter(int(obj["plate"]) for obj in objects if int(obj["plate"]) != 1)
+    if not letter_counts or not any(int(obj["plate"]) == 1 for obj in objects):
+        raise PuzzleError("The file needs a board plate and a letter plate.")
+    if any(count > MAX_LETTERS_PER_PLATE for count in letter_counts.values()):
+        raise PuzzleError("A plate has more than 4 letters.")
+    letter_ids = [pid for pid in plate_ids if pid != 1]
+
+    def plate_title(pid: int) -> str:
+        if pid == 1:
+            return "Board"
+        if len(letter_ids) == 1:
+            return "Letters"
+        return f"Letters {letter_ids.index(pid) + 1}"
+
     object_xml = []
     build_items = []
     model_objects = []
-    plate_instances: dict[int, list[str]] = {1: [], 2: []}
+    plate_instances: dict[int, list[str]] = {pid: [] for pid in plate_ids}
     assemble_items = []
     for index, obj in enumerate(objects):
         object_id = index + 1
@@ -681,9 +873,6 @@ def write_3mf(path: Path, objects: list[dict], colors: list[str], title: str) ->
         raise PuzzleError("The filament list is the wrong length.")
     if len(settings["different_settings_to_system"]) != filament_count + 2:
         raise PuzzleError("The filament overrides are the wrong length.")
-    if not plate_instances[1] or not plate_instances[2]:
-        raise PuzzleError("The file needs a board plate and a letter plate.")
-
     def plate_xml(plate_id: int, name: str) -> str:
         return f'''  <plate>
     <metadata key="plater_id" value="{plate_id}"/>
@@ -708,8 +897,7 @@ def write_3mf(path: Path, objects: list[dict], colors: list[str], title: str) ->
     model_settings = f'''<?xml version="1.0" encoding="UTF-8"?>
 <config>
 {chr(10).join(model_objects)}
-{plate_xml(1, "Board")}
-{plate_xml(2, "Letters")}
+{chr(10).join(plate_xml(pid, plate_title(pid)) for pid in plate_ids)}
   <assemble>
     {''.join(assemble_items)}
   </assemble>
@@ -736,9 +924,16 @@ def write_3mf(path: Path, objects: list[dict], colors: list[str], title: str) ->
         zf.writestr("3D/3dmodel.model", model)
         zf.writestr("Metadata/project_settings.config", json.dumps(settings, indent=2))
         zf.writestr("Metadata/model_settings.config", model_settings)
+        if pauses:
+            zf.writestr("Metadata/custom_gcode_per_layer.xml", _pause_xml(pauses))
 
 
-def assert_3mf(path: Path, filament_count: int) -> None:
+def assert_3mf(
+    path: Path,
+    filament_count: int,
+    pauses: list[tuple[int, float]] | None = None,
+    plate_count: int = 2,
+) -> None:
     with zipfile.ZipFile(path) as zf:
         names = zf.namelist()
         if names.index("3D/3dmodel.model") > names.index("Metadata/model_settings.config"):
@@ -746,6 +941,8 @@ def assert_3mf(path: Path, filament_count: int) -> None:
         loaded = json.loads(zf.read("Metadata/project_settings.config"))
         model_xml = zf.read("3D/3dmodel.model").decode("utf-8")
         settings_xml = zf.read("Metadata/model_settings.config").decode("utf-8")
+        pause_name = "Metadata/custom_gcode_per_layer.xml"
+        pause_xml = zf.read(pause_name).decode("utf-8") if pause_name in names else ""
     if loaded.get("printer_model") != "Bambu Lab P2S" or loaded.get("printer_variant") != "0.4":
         raise PuzzleError("The 3MF is not a P2S project.")
     if loaded.get("nozzle_diameter") != ["0.4"]:
@@ -763,8 +960,25 @@ def assert_3mf(path: Path, filament_count: int) -> None:
         raise PuzzleError("The 3MF is missing a filament color.")
     if "BambuStudio-01.10.02.75" not in model_xml:
         raise PuzzleError("The 3MF is not marked as a Bambu Studio project.")
-    if settings_xml.count("<plate>") != 2:
-        raise PuzzleError("The 3MF should have a board plate and a letter plate.")
+    if settings_xml.count("<plate>") != plate_count:
+        raise PuzzleError("The 3MF has the wrong number of plates.")
+    if not pauses:
+        if pause_xml:
+            raise PuzzleError("The 3MF pauses a print that has no magnets.")
+        return
+    if not pause_xml:
+        raise PuzzleError("The 3MF is missing the magnet pause.")
+    if pause_xml.count("<plate>") != len({plate for plate, _z in pauses}):
+        raise PuzzleError("The magnet pause is missing a plate.")
+    if pause_xml.count('type="1"') != len(pauses):
+        raise PuzzleError("The magnet pause is not a pause command.")
+    if pause_xml.count(PAUSE_GCODE) != len(pauses):
+        raise PuzzleError("The magnet pause command is missing.")
+    for plate_id, top_z in pauses:
+        if f'<plate_info id="{plate_id}"/>' not in pause_xml:
+            raise PuzzleError("The magnet pause is on the wrong plate.")
+        if f'top_z="{top_z:.2f}"' not in pause_xml:
+            raise PuzzleError("The magnet pause is at the wrong height.")
 
 
 def _mesh_payload(shape: cq.Workplane, tolerance: float, angular: float, origin: tuple[float, float]) -> dict:
@@ -823,9 +1037,157 @@ def _check_fit(
     return clearances
 
 
-def generate(raw_name: str, out_dir: Path, progress: Progress | None = None) -> dict:
+def _inside_face(face, x: float, y: float, z: float) -> bool:
+    from OCP.BRepClass import BRepClass_FaceClassifier
+    from OCP.TopAbs import TopAbs_IN
+    from OCP.gp import gp_Pnt
+
+    state = BRepClass_FaceClassifier(face.wrapped, gp_Pnt(x, y, z), 0.02).State()
+    return state == TopAbs_IN
+
+
+def _holds_disc(face, x: float, y: float, z: float, radius: float) -> bool:
+    if not _inside_face(face, x, y, z):
+        return False
+    steps = 12
+    for step in range(steps):
+        angle = 2.0 * math.pi * step / steps
+        if not _inside_face(face, x + radius * math.cos(angle), y + radius * math.sin(angle), z):
+            return False
+    return True
+
+
+def _candidate_points(face, radius: float, step: float) -> list[tuple[float, float]]:
+    bb = face.BoundingBox()
+    z = float(face.Center().z)
+    points: list[tuple[float, float]] = []
+    y = bb.ymin + radius
+    limit_y = bb.ymax - radius
+    limit_x = bb.xmax - radius
+    while y <= limit_y + 1e-6:
+        x = bb.xmin + radius
+        while x <= limit_x + 1e-6:
+            if _holds_disc(face, x, y, z, radius):
+                points.append((x, y))
+            x += step
+        y += step
+    return points
+
+
+def _pick_spots(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """One or two centers, spread apart, with plastic between the pockets."""
+    if len(points) < 2:
+        return list(points)
+    min_gap = POCKET_D + 1.2
+    best_pair = None
+    best_d = -1.0
+    for index, first in enumerate(points):
+        for second in points[index + 1 :]:
+            distance = math.hypot(first[0] - second[0], first[1] - second[1])
+            if distance > best_d:
+                best_pair = (first, second)
+                best_d = distance
+    if best_pair is None or best_d < min_gap:
+        return [points[0]]
+    return [best_pair[0], best_pair[1]]
+
+
+def magnet_spots(letter: cq.Workplane) -> list[tuple[float, float]]:
+    """Centers for 5 mm pockets that stay inside the letter."""
+    faces = letter.faces(">Z").vals()
+    if not faces:
+        return []
+    face = max(faces, key=lambda item: item.Area())
+    for wall, step in ((1.4, 3.0), (1.4, 1.6), (1.0, 1.6), (0.7, 1.5)):
+        chosen = _pick_spots(_candidate_points(face, POCKET_R + wall, step))
+        if len(chosen) >= 2:
+            return chosen
+    return []
+
+
+def _pocket_cutter(x: float, y: float, z0: float, z1: float) -> cq.Workplane:
+    return (
+        cq.Workplane("XY")
+        .center(x, y)
+        .circle(POCKET_R)
+        .extrude(z1 - z0)
+        .translate((0, 0, z0))
+    )
+
+
+def cut_pockets(
+    shape: cq.Workplane,
+    spots: list[tuple[float, float]],
+    z0: float,
+    z1: float,
+    label: str,
+) -> tuple[cq.Workplane, list[tuple[float, float]]]:
+    """Cut enclosed pockets. A spot that breaks the solid, or opens the skin, is skipped."""
+    kept: list[tuple[float, float]] = []
+    volume = solid_volume(shape)
+    pocket_volume = math.pi * POCKET_R * POCKET_R * (z1 - z0)
+    for x, y in spots:
+        try:
+            trial = shape.cut(_pocket_cutter(x, y, z0, z1))
+            assert_single_piece(trial, label)
+            new_volume = solid_volume(trial)
+        except Exception as exc:
+            print(f"  pocket in {label} at {x:.1f}, {y:.1f} skipped ({exc})", flush=True)
+            continue
+        removed = volume - new_volume
+        if abs(removed - pocket_volume) > 0.08 * pocket_volume:
+            print(
+                f"  pocket in {label} at {x:.1f}, {y:.1f} skipped "
+                f"(removed {removed:.1f} mm³, expected {pocket_volume:.1f})",
+                flush=True,
+            )
+            continue
+        shape = trial
+        volume = new_volume
+        kept.append((x, y))
+    return shape, kept
+
+
+def add_magnets(
+    name: str,
+    letters: list[cq.Workplane],
+    layout: dict,
+    board: cq.Workplane,
+    progress: Progress | None,
+) -> tuple[list[cq.Workplane], cq.Workplane, list[int]]:
+    """Pocket every letter and the matching spots in the board floor."""
+    _log(progress, "Placing magnet pockets")
+    new_letters: list[cq.Workplane] = []
+    counts: list[int] = []
+    board_spots: list[tuple[float, float]] = []
+    for ch, letter, well in zip(name, letters, layout["wells"]):
+        spots = magnet_spots(letter)
+        cut_letter, kept = cut_pockets(letter, spots, LETTER_SKIN, LETTER_CAVITY_TOP, ch)
+        dx, dy, _dz = shift_for(letter, well, 0)
+        board_spots.extend((x + dx, y + dy) for x, y in kept)
+        new_letters.append(cut_letter)
+        counts.append(len(kept))
+        _log(progress, f"{ch} gets {len(kept)} magnets")
+    if sum(counts) == 0:
+        raise PuzzleError("None of those letters has room for a 5 mm magnet.")
+    _log(progress, "Cutting the magnet pockets into the board")
+    cut_board, kept_board = cut_pockets(
+        board, board_spots, BOARD_CAVITY_BOTTOM, BOARD_CAVITY_TOP, "The board"
+    )
+    if len(kept_board) != len(board_spots):
+        raise PuzzleError("A magnet pocket did not fit in the board.")
+    return new_letters, cut_board, counts
+
+
+def generate(
+    raw_name: str,
+    out_dir: Path,
+    progress: Progress | None = None,
+    magnets: bool = False,
+) -> dict:
     """Build the puzzle, write puzzle.3mf and model.json, and return the summary."""
     started = time.perf_counter()
+    require_cadquery()
     if not FONT.exists():
         raise PuzzleError("The letter font is missing.")
     name = sanitize_name(raw_name)
@@ -839,11 +1201,13 @@ def generate(raw_name: str, out_dir: Path, progress: Progress | None = None) -> 
     board_h = FLOOR + WELL_DEPTH
     if abs(board_bb.zlen - board_h) > 0.05:
         raise PuzzleError("The board came out the wrong thickness.")
-    if board_bb.xlen > BED - 8 or board_bb.ylen > BED - 8:
-        raise PuzzleError("The board does not fit the printer.")
 
     _log(progress, "Checking the fit")
     clearances = _check_fit(name, letters, layout, board, progress)
+    magnet_counts = [0] * len(name)
+    if magnets:
+        letters, board, magnet_counts = add_magnets(name, letters, layout, board, progress)
+        board_bb = bbox_of(board)
 
     warnings = []
     letter_meta = []
@@ -856,32 +1220,39 @@ def generate(raw_name: str, out_dir: Path, progress: Progress | None = None) -> 
                 f"{ch} is {bb.xlen:.0f} × {bb.ylen:.0f} × {bb.zlen:.0f} mm and can drop "
                 "through the printer's small-parts opening."
             )
+        count = magnet_counts[index]
+        if magnets and count == 0:
+            warnings.append(f"{ch} has no room for a 5×2 mm magnet.")
         letter_meta.append(
             {
                 "char": ch,
                 "color": PALETTE[index % len(PALETTE)],
                 "width": round(bb.xlen, 1),
                 "depth": round(bb.ylen, 1),
+                "magnets": count,
             }
         )
 
     _log(progress, "Writing the print file")
     stl_dir = out_dir / "stl"
     board_path = stl_dir / "board.stl"
-    export_stl(to_bed(board), board_path, 0.08, 0.1)
+    bed_board = turn_onto_bed(board)
+    spun = bbox_of(bed_board)
+    if spun.xlen > BED - 6 or spun.ylen > BED - 6:
+        raise PuzzleError("The turned board does not fit the printer.")
+    export_stl(bed_board, board_path, 0.08, 0.1)
     bed_letters = []
     letter_paths = []
     for ch, letter in zip(name, letters):
         path = stl_dir / f"letter_{ch}_{len(letter_paths) + 1}.stl"
-        bed = to_bed(letter)
+        bed = flip_for_print(letter)
         export_stl(bed, path, 0.045, 0.06)
         bed_letters.append(bed)
         letter_paths.append(path)
 
-    bed_board = to_bed(board)
-    board_size = bbox_of(bed_board)
-    board_pos = ((BED - board_size.xlen) / 2.0, (BED - board_size.ylen) / 2.0, 0.0)
-    _fits_on_plate(board_pos, (board_size.xlen, board_size.ylen), 1)
+    plate_count = 1 + math.ceil(len(bed_letters) / MAX_LETTERS_PER_PLATE)
+    board_pos = ((BED - spun.xlen) / 2.0, (BED - spun.ylen) / 2.0, 0.0)
+    _fits_on_plate(board_pos, (spun.xlen, spun.ylen), 1, plate_count)
     letter_pos = pack_letters(bed_letters)
 
     colors = [BOARD_COLOR, *[item["color"] for item in letter_meta]]
@@ -900,14 +1271,16 @@ def generate(raw_name: str, out_dir: Path, progress: Progress | None = None) -> 
             {
                 "name": _letter_object_name(meta["char"], seen),
                 "extruder": index + 2,
-                "plate": 2,
-                "mesh": stl_mesh(path),
-                "pos": letter_pos[index],
-            }
-        )
+            "plate": letter_pos[index][0],
+            "mesh": stl_mesh(path),
+            "pos": letter_pos[index][1],
+        }
+    )
     three_mf = out_dir / "puzzle.3mf"
-    write_3mf(three_mf, objects, colors, f"{name} name puzzle")
-    assert_3mf(three_mf, len(colors))
+    letter_plates = sorted({item[0] for item in letter_pos})
+    pauses = [(1, BOARD_PAUSE_Z), *[(plate, LETTER_PAUSE_Z) for plate in letter_plates]] if magnets else None
+    write_3mf(three_mf, objects, colors, f"{name} name puzzle", pauses)
+    assert_3mf(three_mf, len(colors), pauses, plate_count)
 
     _log(progress, "Building the preview")
     # Lift the preview letters a hair so their floor does not flicker against
@@ -931,12 +1304,22 @@ def generate(raw_name: str, out_dir: Path, progress: Progress | None = None) -> 
         "letter_gap": round(plan.letter_gap, 2),
         "scale": round(plan.scale, 4),
         "scaled": plan.scale < 0.995,
+        "diagonal": True,
+        "print_span": round(max(spun.xlen, spun.ylen), 1),
+        "shiny_top": True,
+        "letter_plates": len(letter_plates),
+        "letters_per_plate": MAX_LETTERS_PER_PLATE,
         "font_size": round(plan.font_size, 2),
         "clearances": [round(gap, 3) for gap in clearances],
         "warnings": warnings,
         "board_color": BOARD_COLOR,
         "letters": letter_meta,
+        "magnets": magnets,
     }
+    if magnets:
+        summary["pause_board_mm"] = round(BOARD_PAUSE_Z, 2)
+        summary["pause_letters_mm"] = round(LETTER_PAUSE_Z, 2)
+        summary["magnet_size"] = f"{MAGNET_D:.0f}×{MAGNET_T:.0f} mm"
     preview = dict(summary)
     preview["board"] = board_mesh
     preview["letters"] = letter_views
@@ -947,9 +1330,11 @@ def generate(raw_name: str, out_dir: Path, progress: Progress | None = None) -> 
 
 
 def main(argv: list[str]) -> None:
-    raw = argv[1] if len(argv) > 1 else "ROB"
-    out = Path(argv[2]) if len(argv) > 2 else Path("/tmp/name-puzzles") / sanitize_name(raw)
-    summary = generate(raw, out)
+    magnets = "--magnets" in argv[1:]
+    args = [item for item in argv[1:] if item != "--magnets"]
+    raw = args[0] if args else "ROB"
+    out = Path(args[1]) if len(args) > 1 else Path("/tmp/name-puzzles") / sanitize_name(raw)
+    summary = generate(raw, out, magnets=magnets)
     print(json.dumps(summary, indent=2))
 
 

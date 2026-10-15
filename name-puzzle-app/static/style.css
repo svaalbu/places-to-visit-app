@@ -119,6 +119,25 @@ button:disabled {
   opacity: 0.6;
 }
 
+.option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 12px;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.option input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  accent-color: var(--red);
+}
+
 .status {
   min-height: 1.4em;
   margin: 10px 0 0;

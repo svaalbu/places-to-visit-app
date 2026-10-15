@@ -15,23 +15,41 @@ const scaleNote = document.querySelector("#scale-note");
 const chips = document.querySelector("#chips");
 const warnings = document.querySelector("#warnings");
 const download = document.querySelector("#download");
+const magnetsInput = document.querySelector("#magnets");
+const magnetNote = document.querySelector("#magnet-note");
 const canvas = document.querySelector("#canvas");
 
 const view = createView(canvas);
 let pollToken = 0;
 
 nameInput.focus();
+checkReady();
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
-  startPuzzle(nameInput.value);
+  startPuzzle(nameInput.value, magnetsInput.checked);
 });
 
 canvas.addEventListener("pointerdown", () => {
   hint.hidden = true;
 }, { once: true });
 
-async function startPuzzle(rawName) {
+async function checkReady() {
+  try {
+    const response = await fetch("/api/health");
+    const body = await response.json();
+    if (body.cadquery === false && body.hint) {
+      setStatus(body.hint);
+      makeButton.disabled = true;
+      magnetsInput.disabled = true;
+      nameInput.disabled = true;
+    }
+  } catch {
+    // A failed health check still leaves the form usable. Submit reports a dead server.
+  }
+}
+
+async function startPuzzle(rawName, magnets) {
   const token = ++pollToken;
   setBusy(true);
   hidePuzzle();
@@ -41,7 +59,7 @@ async function startPuzzle(rawName) {
     response = await fetch("/api/puzzles", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: rawName }),
+      body: JSON.stringify({ name: rawName, magnets }),
     });
   } catch {
     fail(token, "The app could not be reached.");
@@ -104,9 +122,10 @@ function showSummary(summary, id) {
   details.hidden = false;
   puzzleName.textContent = summary.name;
   sizeNode.textContent = `${formatMm(summary.width)} × ${formatMm(summary.depth)} × ${formatMm(summary.height)} mm`;
+  const turned = `Turned 45° on the bed, it covers ${formatMm(summary.print_span)} mm.`;
   scaleNote.textContent = summary.scaled
-    ? `Scaled to ${Math.round(summary.scale * 100)}% so the board fits the printer. The letters stay ${formatMm(summary.letter_thickness)} mm thick, and each slot is 0.40 mm larger than its letter.`
-    : `Same letter size as the printed FINN puzzle. The letters are ${formatMm(summary.letter_thickness)} mm thick, and each slot is 0.40 mm larger than its letter.`;
+    ? `Scaled to ${Math.round(summary.scale * 100)}% so the turned board fits the printer. ${turned} The letters stay ${formatMm(summary.letter_thickness)} mm thick, and each slot is 0.40 mm larger than its letter.`
+    : `Same letter size as the printed FINN puzzle. ${turned} The letters are ${formatMm(summary.letter_thickness)} mm thick, and each slot is 0.40 mm larger than its letter.`;
   chips.replaceChildren();
   for (const letter of summary.letters) {
     const item = document.createElement("li");
@@ -120,6 +139,14 @@ function showSummary(summary, id) {
   } else {
     warnings.hidden = true;
     warnings.textContent = "";
+  }
+  if (summary.magnets) {
+    const counts = summary.letters.map((letter) => `${letter.char} ${letter.magnets}`).join(", ");
+    magnetNote.hidden = false;
+    magnetNote.textContent = `Magnet pockets: ${counts}. The board pauses at ${formatMm(summary.pause_board_mm)} mm. The letters are printed face-down, so they pause at ${formatMm(summary.pause_letters_mm)} mm, just before the last layers cover the magnets. Drop in 5×2 mm magnets. Keep every letter magnet the same way up, and flip the board magnets over, so each pair pulls together. Leave the layer height at 0.20 mm.`;
+  } else {
+    magnetNote.hidden = true;
+    magnetNote.textContent = "";
   }
   download.href = `/api/puzzles/${id}/puzzle.3mf`;
   download.setAttribute("download", `${summary.name}_name_puzzle.3mf`);
@@ -142,6 +169,7 @@ function fail(token, message) {
 function setBusy(busy) {
   makeButton.disabled = busy;
   nameInput.disabled = busy;
+  magnetsInput.disabled = busy;
   makeButton.textContent = busy ? "Making…" : "Make puzzle";
 }
 

@@ -1,3 +1,5 @@
+# CadQuery 2.8 needs Python 3.11 or newer. Do not install this into the
+# places-to-visit backend virtualenv, which is Python 3.9.
 fastapi>=0.110
 uvicorn>=0.27
 cadquery>=2.8

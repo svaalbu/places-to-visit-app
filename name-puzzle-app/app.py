@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from puzzle import PuzzleError, generate, sanitize_name
+from puzzle import PuzzleError, cadquery_hint, cadquery_ready, generate, sanitize_name
 
 ROOT = Path(__file__).resolve().parent
 JOB_ROOT = Path("/tmp/name-puzzles")
@@ -34,6 +34,7 @@ log = logging.getLogger("namepuzzle")
 
 class NameIn(BaseModel):
     name: str
+    magnets: bool = False
 
 
 def _public(job: dict) -> dict:
@@ -73,7 +74,7 @@ def _run(job: dict) -> None:
 
     with _generate_lock:
         try:
-            job["summary"] = generate(job["name"], out, progress)
+            job["summary"] = generate(job["name"], out, progress, magnets=bool(job["magnets"]))
             job["status"] = "done"
             job["message"] = "Ready"
         except PuzzleError as exc:
@@ -90,7 +91,11 @@ def _run(job: dict) -> None:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True}
+    ready = cadquery_ready()
+    payload: dict = {"ok": True, "cadquery": ready}
+    if not ready:
+        payload["hint"] = cadquery_hint()
+    return payload
 
 
 @app.post("/api/puzzles")
@@ -107,6 +112,7 @@ def create_puzzle(body: NameIn) -> dict:
         "message": "Starting",
         "error": None,
         "summary": None,
+        "magnets": bool(body.magnets),
         "created": time_now(),
     }
     with _jobs_lock:

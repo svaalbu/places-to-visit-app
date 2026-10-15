@@ -2,28 +2,46 @@
 
 Type a name, look at the board, and download a 3MF for a Bambu Lab P2S.
 
-Short names stay at the same letter size as the printed FINN puzzle. Longer names are scaled down in the plane until the board is 247.5 mm wide, which leaves a few millimetres of bed on each side. The letters stay 11 mm thick, and each slot stays 0.40 mm larger than its letter. Counters such as O, R, A, and B stay in the board as islands.
+The board is always turned 45° on plate 1. A short name stays at the same letter size as the printed FINN puzzle. A longer name is scaled down in the plane until the turned board still clears the 256 mm bed. That is what lets a name such as Johanne use a board longer than the bed is wide. The letters stay 11 mm thick, and each slot stays 0.40 mm larger than its letter. Counters such as O, R, A, and B stay in the board as islands.
 
-The file is a closed mesh and a single-nozzle P2S project. Plate 1 is the board. Plate 2 is the letters. It does not replace the printer's extruder type or the filament start G-code.
+The file is a closed mesh and a single-nozzle P2S project. Plate 1 is the board. The letters follow, at most four on a plate, each flipped so the shiny face from the bed is the face that shows on top of the puzzle. The file does not replace the printer's extruder type or the filament start G-code.
 
 ## Run
 
-From this directory:
+Use Python 3.11 or newer, in this folder, not the places-to-visit `backend/.venv`. That environment is Python 3.9, and CadQuery 2.8 will not install there. On a Mac:
 
 ```bash
-python3 -m uvicorn app:app --host 0.0.0.0 --port 8000
+brew install python@3.11
+cd name-puzzle-app
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python -m uvicorn app:app --host 0.0.0.0 --port 8000
 ```
 
-Then open http://localhost:8000. CadQuery and the other Python packages are listed in `requirements.txt`. Building a puzzle takes a minute or two; the page shows progress and keeps the form free.
+Then open http://localhost:8000. If the page is opened from the Python 3.9 backend environment, it stays up and says how to start this one instead of crashing on import.
 
-A name can also be built without the page:
+Building a puzzle takes a minute or two. The page shows progress and keeps the form free.
+
+A name can also be built without the page. Add `--magnets` for the 5×2 mm pockets:
 
 ```bash
-python3 puzzle.py ROB /tmp/rob-puzzle
+python puzzle.py OLAV /tmp/olav-puzzle --magnets
 ```
+
+## Magnets
+
+The checkbox adds 1 or 2 pockets per letter, for 5 mm × 2 mm discs, and a matching pocket in the board floor under each one. The pocket is 5.4 mm across and 2.2 mm deep, so the magnet drops in and sits just below the plastic that closes over it.
+
+The 3MF pauses the print before that cover:
+
+- Board, plate 1: pause at 3.20 mm
+- Each letter plate: pause at 10.80 mm
+
+The letter pause is near the end because the letters are printed face-down. Keep the layer height at 0.20 mm so those pauses land on the open pocket. Put every letter magnet in the same way up. Flip the board magnets over, so the pairs pull together.
 
 ## Print
 
-Slots up. 0.20 mm layers, PLA. On the board, use 9 top shells and 9 bottom shells so the 3.5 mm floor is solid. Ironing off. Brim off. If one letter is tight, scale that letter to 99%, not the board.
+Board slots up. Letters face-down, so the shiny side faces up in the puzzle. 0.20 mm layers, PLA. On the board, use 9 top shells and 9 bottom shells so the 3.5 mm floor is solid. Ironing off. Brim off. If one letter is tight, scale that letter to 99%, not the board. At most four letters share a plate.
 
 Letters set in [Lilita One](fonts/OFL.txt) by Juan Montoreano.
