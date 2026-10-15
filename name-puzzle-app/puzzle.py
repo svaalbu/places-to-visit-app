@@ -609,12 +609,30 @@ def export_stl(shape: cq.Workplane, path: Path, tolerance: float, angular: float
     cq.exporters.export(shape, str(path), tolerance=tolerance, angularTolerance=angular)
 
 
+# Three skins close the magnet lids (0.4 mm on a letter, 0.5 mm on the board)
+# without making the 3.5 mm floor a solid block.
+TOP_SHELLS = "3"
+BOTTOM_SHELLS = "3"
+# Keys that differ from the 0.20 mm Standard profile. Studio keeps a saved
+# value only when its name is listed here.
+PROCESS_SETTINGS = {
+    "layer_height": "0.2",
+    "initial_layer_print_height": "0.2",
+    "top_shell_layers": TOP_SHELLS,
+    "bottom_shell_layers": BOTTOM_SHELLS,
+    "ironing_type": "no ironing",
+    "brim_type": "no_brim",
+}
+PROCESS_DIFF = ";".join(PROCESS_SETTINGS)
+
+
 def project_settings(colors: list[str]) -> dict:
     """Single-nozzle P2S project. One filament slot per color.
 
     extruder_type stays unset so Bambu Studio keeps the printer's own value
     instead of popping a substitution dialog. Nothing here replaces the
-    filament start G-code.
+    filament start G-code. Layer height, shell count, brim, and ironing are
+    saved so the pauses land on the magnet pockets.
     """
     count = len(colors)
     filaments = ["Bambu PLA Basic @BBL P2S"] * count
@@ -639,7 +657,8 @@ def project_settings(colors: list[str]) -> dict:
             *filaments,
             "Bambu Lab P2S 0.4 nozzle",
         ],
-        "different_settings_to_system": ["", *["filament_colour"] * count, ""],
+        "different_settings_to_system": [PROCESS_DIFF, *["filament_colour"] * count, ""],
+        **PROCESS_SETTINGS,
     }
 
 
@@ -952,10 +971,13 @@ def assert_3mf(
     if len(loaded["inherits_group"]) != filament_count + 2:
         raise PuzzleError("The filament list is the wrong length.")
     diffs = loaded["different_settings_to_system"]
-    if len(diffs) != filament_count + 2 or diffs[0] != "" or diffs[-1] != "":
+    if len(diffs) != filament_count + 2 or diffs[0] != PROCESS_DIFF or diffs[-1] != "":
         raise PuzzleError("The filament overrides are the wrong length.")
     if any(item != "filament_colour" for item in diffs[1:-1]):
         raise PuzzleError("The 3MF overrides more than the filament color.")
+    for key, value in PROCESS_SETTINGS.items():
+        if loaded.get(key) != value:
+            raise PuzzleError(f"The 3MF is missing the saved {key} setting.")
     if len(loaded["filament_colour"]) != filament_count:
         raise PuzzleError("The 3MF is missing a filament color.")
     if "BambuStudio-01.10.02.75" not in model_xml:

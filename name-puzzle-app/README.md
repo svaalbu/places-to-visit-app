@@ -38,10 +38,10 @@ The 3MF pauses the print before that cover:
 - Board, plate 1: pause at 3.20 mm
 - Each letter plate: pause at 10.80 mm
 
-The letter pause is near the end because the letters are printed face-down. Keep the layer height at 0.20 mm so those pauses land on the open pocket. Put every letter magnet in the same way up. Flip the board magnets over, so the pairs pull together.
+The letter pause is near the end because the letters are printed face-down. The file pins the layer height at 0.20 mm so those pauses land on the open pocket. Put every letter magnet in the same way up. Flip the board magnets over, so the pairs pull together.
 
 ## Print
 
-Board slots up. Letters face-down, so the shiny side faces up in the puzzle. 0.20 mm layers, PLA. On the board, use 9 top shells and 9 bottom shells so the 3.5 mm floor is solid. Ironing off. Brim off. If one letter is tight, scale that letter to 99%, not the board. At most four letters share a plate.
+The 3MF already selects the P2S, 0.20 mm layers, 3 top shells, 3 bottom shells, no brim, and ironing off. Three shells are enough to close the magnet lids, which are 0.4 mm on a letter and 0.5 mm on the board. The middle of the floor is infill, so the print uses less plastic than a solid floor. Board slots up. Letters face-down, so the shiny side faces up in the puzzle. PLA. If one letter is tight, scale that letter to 99%, not the board. At most four letters share a plate.
 
 Letters set in [Lilita One](fonts/OFL.txt) by Juan Montoreano.

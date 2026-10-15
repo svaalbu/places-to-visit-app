@@ -13,7 +13,7 @@ The board is turned 45° on a Bambu Lab P2S. Each letter has two magnet pockets,
 | Plate 2, Letters 1 | J, O, H, A. Pause at 10.80 mm |
 | Plate 3, Letters 2 | N, N, E. Pause at 10.80 mm |
 
-Print the board slots up and the letters face-down. PLA, 0.20 mm layers. On the board, use 9 top shells and 9 bottom shells so the floor stays solid. Ironing off. Brim off. Leave the layer height at 0.20 mm so each pause lands on the open pocket.
+The file already sets 0.20 mm layers, 3 top shells, 3 bottom shells, no brim, and ironing off. Three shells close the magnet lids. The middle of the floor is infill. Print the board slots up and the letters face-down, in PLA.
 
 When the printer pauses, drop the magnets in. Put every letter magnet in the same way up, and flip the board magnets over, so each pair pulls together.
 
