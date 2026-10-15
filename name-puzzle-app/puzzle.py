@@ -14,7 +14,7 @@ project: plate 1 is the board, and the letters follow with at most four per plat
 Each letter is flipped for printing, so the face that sits on the bed is the
 face that shows on top of the finished puzzle. That bed face is the shiny one.
 
-Optional 5x2 mm magnet pockets sit inside each letter (one) and in the
+Optional 5x2 mm magnet pockets sit inside each letter (two) and in the
 board floor under that letter. The project pauses before the layer that
 covers them. Letter plates print one object at a time.
 """
@@ -1145,12 +1145,21 @@ def _candidate_points(face, radius: float, step: float) -> list[tuple[float, flo
 
 
 def _pick_spots(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    """One center, as close as the letter allows to its middle."""
-    if not points:
-        return []
-    mean_x = sum(point[0] for point in points) / len(points)
-    mean_y = sum(point[1] for point in points) / len(points)
-    return [min(points, key=lambda point: (point[0] - mean_x) ** 2 + (point[1] - mean_y) ** 2)]
+    """Two centers, spread apart, with plastic between the pockets."""
+    if len(points) < 2:
+        return list(points)
+    min_gap = POCKET_D + 1.2
+    best_pair = None
+    best_d = -1.0
+    for index, first in enumerate(points):
+        for second in points[index + 1 :]:
+            distance = math.hypot(first[0] - second[0], first[1] - second[1])
+            if distance > best_d:
+                best_pair = (first, second)
+                best_d = distance
+    if best_pair is None or best_d < min_gap:
+        return [points[0]]
+    return [best_pair[0], best_pair[1]]
 
 
 def magnet_spots(letter: cq.Workplane) -> list[tuple[float, float]]:
@@ -1161,7 +1170,7 @@ def magnet_spots(letter: cq.Workplane) -> list[tuple[float, float]]:
     face = max(faces, key=lambda item: item.Area())
     for wall, step in ((1.4, 3.0), (1.4, 1.6), (1.0, 1.6), (0.7, 1.5)):
         chosen = _pick_spots(_candidate_points(face, POCKET_R + wall, step))
-        if chosen:
+        if len(chosen) >= 2:
             return chosen
     return []
 
@@ -1283,9 +1292,11 @@ def generate(
             )
         count = magnet_counts[index]
         if magnets and count == 0:
-            warnings.append(f"{ch} has no room for a 5×2 mm magnet.")
-        if count > 1:
-            raise PuzzleError(f"{ch} has more than one magnet.")
+            warnings.append(f"{ch} has no room for two 5×2 mm magnets.")
+        elif magnets and count == 1:
+            warnings.append(f"{ch} has room for only one 5×2 mm magnet.")
+        if count > 2:
+            raise PuzzleError(f"{ch} has more than two magnets.")
         letter_meta.append(
             {
                 "char": ch,

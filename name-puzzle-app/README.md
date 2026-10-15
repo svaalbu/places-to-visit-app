@@ -31,7 +31,7 @@ python puzzle.py OLAV /tmp/olav-puzzle --magnets
 
 ## Magnets
 
-The checkbox adds one pocket per letter, for a 5 mm × 2 mm disc, and a matching pocket in the board floor under it. The pocket is 5.4 mm across and 2.2 mm deep, so the magnet drops in and sits just below the plastic that closes over it.
+The checkbox adds two pockets per letter, for 5 mm × 2 mm discs, and a matching pocket in the board floor under each one. The pocket is 5.4 mm across and 2.2 mm deep, so the magnet drops in and sits just below the plastic that closes over it. A letter that is too narrow for two pockets gets one, and the page says so.
 
 The 3MF pauses the print before that cover:
 
