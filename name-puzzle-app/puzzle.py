@@ -14,9 +14,9 @@ project: plate 1 is the board, and the letters follow with at most four per plat
 Each letter is flipped for printing, so the face that sits on the bed is the
 face that shows on top of the finished puzzle. That bed face is the shiny one.
 
-Optional 5x2 mm magnet pockets sit inside each letter (one or two) and in the
+Optional 5x2 mm magnet pockets sit inside each letter (one) and in the
 board floor under that letter. The project pauses before the layer that
-covers them.
+covers them. Letter plates print one object at a time.
 """
 
 from __future__ import annotations
@@ -85,6 +85,9 @@ PAUSE_GCODE = "M400 U1"
 PLATE_STRIDE = BED * 1.2
 MAX_LETTERS = 12
 MAX_LETTERS_PER_PLATE = 4
+# P2S by-object printing needs more than 57 mm between objects. The gap is
+# the closest the boxes can be, including on a diagonal.
+OBJECT_GAP = 58.0
 
 _CADQUERY_HINT = (
     "CadQuery is not installed in this Python. The backend virtualenv is "
@@ -620,6 +623,7 @@ PROCESS_SETTINGS = {
     "initial_layer_print_height": "0.2",
     "top_shell_layers": TOP_SHELLS,
     "bottom_shell_layers": BOTTOM_SHELLS,
+    "elefant_foot_compensation": "0.1",
     "ironing_type": "no ironing",
     "brim_type": "no_brim",
 }
@@ -631,8 +635,9 @@ def project_settings(colors: list[str]) -> dict:
 
     extruder_type stays unset so Bambu Studio keeps the printer's own value
     instead of popping a substitution dialog. Nothing here replaces the
-    filament start G-code. Layer height, shell count, brim, and ironing are
-    saved so the pauses land on the magnet pockets.
+    filament start G-code. Layer height, shell count, elephant foot
+    compensation, brim, and ironing are saved so the pauses land on the
+    magnet pockets.
     """
     count = len(colors)
     filaments = ["Bambu PLA Basic @BBL P2S"] * count
@@ -721,14 +726,17 @@ def flip_for_print(shape: cq.Workplane) -> cq.Workplane:
 def pack_letters(
     bed_letters: list[cq.Workplane],
 ) -> list[tuple[int, tuple[float, float, float]]]:
-    """Lay letters on later plates, at most four per plate, centered."""
+    """Lay letters on later plates, at most four per plate, centered.
+
+    The gap leaves room for the toolhead, so those plates can print by object.
+    """
     groups = [
         list(range(start, min(start + MAX_LETTERS_PER_PLATE, len(bed_letters))))
         for start in range(0, len(bed_letters), MAX_LETTERS_PER_PLATE)
     ]
     plate_count = 1 + len(groups)
     sizes = [bbox_of(letter) for letter in bed_letters]
-    gap = 8.0
+    gap = OBJECT_GAP
     margin = 8.0
     max_w = BED - 2 * margin
     placements: list[tuple[int, tuple[float, float, float]] | None] = [None] * len(bed_letters)
@@ -770,6 +778,34 @@ def pack_letters(
                 x += bb.xlen + gap
             y += row_h + gap
     return placements  # type: ignore[return-value]
+
+
+def _letter_clearance(
+    bed_letters: list[cq.Workplane],
+    placements: list[tuple[int, tuple[float, float, float]]],
+) -> float:
+    """Closest distance between letter boxes that share a plate."""
+    boxes = []
+    for letter, (plate, pos) in zip(bed_letters, placements):
+        bb = bbox_of(letter)
+        boxes.append((plate, pos[0], pos[1], pos[0] + bb.xlen, pos[1] + bb.ylen))
+    closest = math.inf
+    for index, left in enumerate(boxes):
+        for right in boxes[index + 1 :]:
+            if left[0] != right[0]:
+                continue
+            gap_x = max(left[1] - right[3], right[1] - left[3])
+            gap_y = max(left[2] - right[4], right[2] - left[4])
+            if gap_x > 0 and gap_y > 0:
+                distance = math.hypot(gap_x, gap_y)
+            elif gap_x > 0:
+                distance = gap_x
+            elif gap_y > 0:
+                distance = gap_y
+            else:
+                distance = max(gap_x, gap_y)
+            closest = min(closest, distance)
+    return closest
 
 
 def _pause_xml(pauses: list[tuple[int, float]]) -> str:
@@ -893,10 +929,14 @@ def write_3mf(
     if len(settings["different_settings_to_system"]) != filament_count + 2:
         raise PuzzleError("The filament overrides are the wrong length.")
     def plate_xml(plate_id: int, name: str) -> str:
+        # Letter plates print one object at a time. The board stays by layer.
+        sequence = ""
+        if plate_id != 1:
+            sequence = '\n    <metadata key="print_sequence" value="by object"/>'
         return f'''  <plate>
     <metadata key="plater_id" value="{plate_id}"/>
     <metadata key="plater_name" value="{escape(name)}"/>
-    <metadata key="locked" value="false"/>
+    <metadata key="locked" value="false"/>{sequence}
 {chr(10).join(plate_instances[plate_id])}
   </plate>'''
 
@@ -984,6 +1024,14 @@ def assert_3mf(
         raise PuzzleError("The 3MF is not marked as a Bambu Studio project.")
     if settings_xml.count("<plate>") != plate_count:
         raise PuzzleError("The 3MF has the wrong number of plates.")
+    for plate in settings_xml.split("<plate>")[1:]:
+        head = plate.split("</plate>", 1)[0]
+        by_object = 'key="print_sequence" value="by object"' in head
+        if 'key="plater_id" value="1"' in head:
+            if by_object:
+                raise PuzzleError("The board plate is set to print by object.")
+        elif not by_object:
+            raise PuzzleError("A letter plate is not set to print by object.")
     if not pauses:
         if pause_xml:
             raise PuzzleError("The 3MF pauses a print that has no magnets.")
@@ -1097,21 +1145,12 @@ def _candidate_points(face, radius: float, step: float) -> list[tuple[float, flo
 
 
 def _pick_spots(points: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    """One or two centers, spread apart, with plastic between the pockets."""
-    if len(points) < 2:
-        return list(points)
-    min_gap = POCKET_D + 1.2
-    best_pair = None
-    best_d = -1.0
-    for index, first in enumerate(points):
-        for second in points[index + 1 :]:
-            distance = math.hypot(first[0] - second[0], first[1] - second[1])
-            if distance > best_d:
-                best_pair = (first, second)
-                best_d = distance
-    if best_pair is None or best_d < min_gap:
-        return [points[0]]
-    return [best_pair[0], best_pair[1]]
+    """One center, as close as the letter allows to its middle."""
+    if not points:
+        return []
+    mean_x = sum(point[0] for point in points) / len(points)
+    mean_y = sum(point[1] for point in points) / len(points)
+    return [min(points, key=lambda point: (point[0] - mean_x) ** 2 + (point[1] - mean_y) ** 2)]
 
 
 def magnet_spots(letter: cq.Workplane) -> list[tuple[float, float]]:
@@ -1122,7 +1161,7 @@ def magnet_spots(letter: cq.Workplane) -> list[tuple[float, float]]:
     face = max(faces, key=lambda item: item.Area())
     for wall, step in ((1.4, 3.0), (1.4, 1.6), (1.0, 1.6), (0.7, 1.5)):
         chosen = _pick_spots(_candidate_points(face, POCKET_R + wall, step))
-        if len(chosen) >= 2:
+        if chosen:
             return chosen
     return []
 
@@ -1245,6 +1284,8 @@ def generate(
         count = magnet_counts[index]
         if magnets and count == 0:
             warnings.append(f"{ch} has no room for a 5×2 mm magnet.")
+        if count > 1:
+            raise PuzzleError(f"{ch} has more than one magnet.")
         letter_meta.append(
             {
                 "char": ch,
@@ -1276,6 +1317,8 @@ def generate(
     board_pos = ((BED - spun.xlen) / 2.0, (BED - spun.ylen) / 2.0, 0.0)
     _fits_on_plate(board_pos, (spun.xlen, spun.ylen), 1, plate_count)
     letter_pos = pack_letters(bed_letters)
+    if len(bed_letters) > 1 and _letter_clearance(bed_letters, letter_pos) <= 57.0:
+        raise PuzzleError("Letters on one plate are too close to print by object.")
 
     colors = [BOARD_COLOR, *[item["color"] for item in letter_meta]]
     seen: Counter[str] = Counter()

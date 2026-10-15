@@ -4,7 +4,7 @@ Type a name, look at the board, and download a 3MF for a Bambu Lab P2S.
 
 The board is always turned 45° on plate 1. A short name stays at the same letter size as the printed FINN puzzle. A longer name is scaled down in the plane until the turned board still clears the 256 mm bed. That is what lets a name such as Johanne use a board longer than the bed is wide. The letters stay 11 mm thick, and each slot stays 0.40 mm larger than its letter. Counters such as O, R, A, and B stay in the board as islands.
 
-The file is a closed mesh and a single-nozzle P2S project. Plate 1 is the board. The letters follow, at most four on a plate, each flipped so the shiny face from the bed is the face that shows on top of the puzzle. The file does not replace the printer's extruder type or the filament start G-code.
+The file is a closed mesh and a single-nozzle P2S project. Plate 1 is the board. The letters follow, at most four on a plate, each flipped so the shiny face from the bed is the face that shows on top of the puzzle. Letter plates are set to print by object, with 58 mm between letters so the P2S toolhead can finish one before starting the next. The file does not replace the printer's extruder type or the filament start G-code.
 
 ## Run
 
@@ -31,7 +31,7 @@ python puzzle.py OLAV /tmp/olav-puzzle --magnets
 
 ## Magnets
 
-The checkbox adds 1 or 2 pockets per letter, for 5 mm × 2 mm discs, and a matching pocket in the board floor under each one. The pocket is 5.4 mm across and 2.2 mm deep, so the magnet drops in and sits just below the plastic that closes over it.
+The checkbox adds one pocket per letter, for a 5 mm × 2 mm disc, and a matching pocket in the board floor under it. The pocket is 5.4 mm across and 2.2 mm deep, so the magnet drops in and sits just below the plastic that closes over it.
 
 The 3MF pauses the print before that cover:
 
@@ -42,6 +42,6 @@ The letter pause is near the end because the letters are printed face-down. The 
 
 ## Print
 
-The 3MF already selects the P2S, 0.20 mm layers, 5 top shells, 5 bottom shells, no brim, and ironing off. Five shells are 1.0 mm of solid plastic on each face, which closes the magnet lids. The middle of the 3.5 mm floor stays infill. Board slots up. Letters face-down, so the shiny side faces up in the puzzle. PLA. If one letter is tight, scale that letter to 99%, not the board. At most four letters share a plate.
+The 3MF already selects the P2S, 0.20 mm layers, 5 top shells, 5 bottom shells, 0.1 mm elephant foot compensation, no brim, and ironing off. Five shells are 1.0 mm of solid plastic on each face, which closes the magnet lids. The middle of the 3.5 mm floor stays infill. Board slots up, printed by layer. Letter plates print by object. Letters face-down, so the shiny side faces up in the puzzle. PLA. If one letter is tight, scale that letter to 99%, not the board. At most four letters share a plate.
 
 Letters set in [Lilita One](fonts/OFL.txt) by Juan Montoreano.
