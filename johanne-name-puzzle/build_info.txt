@@ -1,0 +1,17 @@
+name=JOHANNE
+width=295.0
+depth=63.9
+height=10.5
+letter_thickness=11.0
+clearance=0.4
+letter_gap=6.84
+scale=0.6841
+scaled=True
+diagonal=True
+straight_length=247.5
+bed_footprint=[247.5, 247.5]
+font_size=62.17
+clearances=[0.4, 0.4, 0.4, 0.396, 0.4, 0.4, 0.4]
+warnings=["J is 26 × 44 × 11 mm and can drop through the printer's small-parts opening.", "E is 25 × 44 × 11 mm and can drop through the printer's small-parts opening."]
+board_color=#E8C794
+letters=[{'char': 'J', 'color': '#DB382E', 'width': 25.9, 'depth': 44.2}, {'char': 'O', 'color': '#2E6BDB', 'width': 39.5, 'depth': 44.7}, {'char': 'H', 'color': '#389E4D', 'width': 33.8, 'depth': 43.6}, {'char': 'A', 'color': '#F2C71F', 'width': 38.8, 'depth': 43.6}, {'char': 'N', 'color': '#E07A2F', 'width': 34.1, 'depth': 43.6}, {'char': 'N', 'color': '#7A4DB8', 'width': 34.1, 'depth': 43.6}, {'char': 'E', 'color': '#E23B8C', 'width': 25.2, 'depth': 43.5}]
