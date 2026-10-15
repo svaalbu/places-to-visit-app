@@ -609,10 +609,10 @@ def export_stl(shape: cq.Workplane, path: Path, tolerance: float, angular: float
     cq.exporters.export(shape, str(path), tolerance=tolerance, angularTolerance=angular)
 
 
-# Three skins close the magnet lids (0.4 mm on a letter, 0.5 mm on the board)
-# without making the 3.5 mm floor a solid block.
-TOP_SHELLS = "3"
-BOTTOM_SHELLS = "3"
+# Five skins are 1.0 mm on each face. That closes the magnet lids and leaves
+# the middle of the 3.5 mm floor as infill.
+TOP_SHELLS = "5"
+BOTTOM_SHELLS = "5"
 # Keys that differ from the 0.20 mm Standard profile. Studio keeps a saved
 # value only when its name is listed here.
 PROCESS_SETTINGS = {
