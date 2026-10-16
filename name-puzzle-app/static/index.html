@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Name puzzle</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div>
+        <p class="eyebrow">Bambu Lab P2S</p>
+        <h1>Name puzzle</h1>
+      </div>
+      <p class="lede">Type a name. The board is turned 45° on the bed so a longer name still fits. You can add magnet pockets, then download the print file.</p>
+    </header>
+
+    <form id="form" class="form">
+      <label for="name">Name</label>
+      <div class="form-row">
+        <input id="name" name="name" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Finn" required>
+        <button type="submit" id="make">Make puzzle</button>
+      </div>
+      <label class="option" for="magnets">
+        <input id="magnets" type="checkbox">
+        <span>Add 5×2 mm magnets. Each letter gets two, the board gets a matching pocket under each one, and the print pauses so the magnets can be dropped in.</span>
+      </label>
+      <p id="status" class="status" role="status" aria-live="polite">Letters A to Z, up to 12. The board is turned 45° on the bed.</p>
+    </form>
+
+    <div class="stage solo" id="stage">
+      <div class="viewer" id="viewer">
+        <canvas id="canvas"></canvas>
+        <p id="empty" class="empty">The board shows up here.</p>
+        <p id="hint" class="hint" hidden>Drag to turn. Scroll to zoom.</p>
+      </div>
+      <aside id="details" class="details" hidden>
+        <h2 id="puzzle-name">Name</h2>
+        <p id="size" class="size"></p>
+        <p id="scale-note" class="note"></p>
+        <ul id="chips" class="chips"></ul>
+        <p id="warnings" class="warnings" hidden></p>
+        <p id="magnet-note" class="note" hidden></p>
+        <a id="download" class="download" href="#">Download 3MF</a>
+        <p class="print-note">Plate 1 is the board. Each later plate holds at most 4 letters, with the show face up. Every plate prints by layer, so the magnet pause is available. That face is monotonic lines, ironed slowly. The file also sets 0.20 mm layers, 5 top and 5 bottom shells, 0.1 mm elephant foot compensation, and no brim.</p>
+      </aside>
+    </div>
+
+    <footer class="foot">Letters set in Lilita One by Juan Montoreano.</footer>
+  </div>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three.module.js"
+      }
+    }
+  </script>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
