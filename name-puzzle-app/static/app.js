@@ -143,7 +143,7 @@ function showSummary(summary, id) {
   if (summary.magnets) {
     const counts = summary.letters.map((letter) => `${letter.char} ${letter.magnets}`).join(", ");
     magnetNote.hidden = false;
-    magnetNote.textContent = `Magnet pockets: ${counts}. The board pauses at ${formatMm(summary.pause_board_mm)} mm. The letters are printed face-down, so they pause at ${formatMm(summary.pause_letters_mm)} mm, just before the last layers cover the magnets. Drop in 5×2 mm magnets. Keep every letter magnet the same way up, and flip the board magnets over, so each pair pulls together. Leave the layer height at 0.20 mm.`;
+    magnetNote.textContent = `Magnet pockets: ${counts}. The board pauses at ${formatMm(summary.pause_board_mm)} mm. The letters pause at ${formatMm(summary.pause_letters_mm)} mm, while the pocket is still open, and the rest of the letter then prints over the magnets. Drop in 5×2 mm magnets. Put every magnet in the same way up, on the letters and on the board, so each pair pulls together. Leave the layer height at 0.20 mm.`;
   } else {
     magnetNote.hidden = true;
     magnetNote.textContent = "";

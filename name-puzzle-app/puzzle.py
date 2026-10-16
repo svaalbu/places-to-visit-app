@@ -11,8 +11,9 @@ Each slot is the letter's outline. Counters (O, R, A, B, and the rest) stay
 in the board as islands. The 3MF is a closed mesh and a single-nozzle P2S
 project: plate 1 is the board, and the letters follow with at most four per plate.
 
-Each letter is flipped for printing, so the face that sits on the bed is the
-face that shows on top of the finished puzzle. That bed face is the shiny one.
+Letters print with the show face up. The top of that face is ironed.
+Magnet pockets sit near the bed, and the rest of the letter prints over
+them so the discs stay buried.
 
 Optional 5x2 mm magnet pockets sit inside each letter (two) and in the
 board floor under that letter. The project pauses before the layer that
@@ -67,13 +68,11 @@ MAGNET_T = 2.0
 POCKET_D = 5.4
 POCKET_H = 2.2
 POCKET_R = POCKET_D / 2.0
-# Two bottom layers, then the pocket. The pause is the next layer line,
-# which is the first layer that covers the magnet.
+# Two layers on the bed, then the pocket. The pause is the first layer that
+# covers the magnet. The rest of the letter prints over that cover.
 LETTER_SKIN = 0.40
 LETTER_CAVITY_TOP = LETTER_SKIN + POCKET_H
-# Letters are flipped before printing, so this skin is the last part printed.
-# The pause is the first of those cover layers.
-LETTER_PAUSE_Z = round(LETTER_THICK - LETTER_SKIN + LAYER, 2)
+LETTER_PAUSE_Z = round(LETTER_CAVITY_TOP + LAYER, 2)
 # The board floor is 3.5 mm. The pocket ends on a layer line and leaves
 # 0.5 mm of floor over the magnet, under the slot.
 BOARD_CAVITY_TOP = 3.0
@@ -624,7 +623,15 @@ PROCESS_SETTINGS = {
     "top_shell_layers": TOP_SHELLS,
     "bottom_shell_layers": BOTTOM_SHELLS,
     "elefant_foot_compensation": "0.1",
-    "ironing_type": "no ironing",
+    # Topmost irons the show face and leaves the magnet lid alone.
+    # zig-zag is Bambu's rectilinear ironing pattern.
+    "ironing_type": "topmost",
+    "ironing_pattern": "zig-zag",
+    "ironing_flow": "10%",
+    "ironing_spacing": "0.1",
+    "ironing_speed": "20",
+    "ironing_inset": "0",
+    "ironing_direction": "45",
     "brim_type": "no_brim",
 }
 PROCESS_DIFF = ";".join(PROCESS_SETTINGS)
@@ -701,26 +708,6 @@ def _fits_on_plate(
         raise PuzzleError(
             f"A part on plate {plate} is {width:.0f} × {depth:.0f} mm and does not fit the bed."
         )
-
-
-def flip_for_print(shape: cq.Workplane) -> cq.Workplane:
-    """Turn a letter over so its top face lies on the bed.
-
-    The bed leaves a shiny surface. That face is the one that shows on top
-    of the finished puzzle. Turning it over, rather than mirroring it, keeps
-    the letter reading the right way once the shiny face is up.
-    """
-    bb = bbox_of(shape)
-    flipped = shape.rotate(
-        (bb.center.x, bb.center.y, bb.center.z),
-        (bb.center.x + 1.0, bb.center.y, bb.center.z),
-        180,
-    )
-    bed = to_bed(flipped)
-    out = bbox_of(bed)
-    if out.zmin > 0.05 or abs(out.zlen - bb.zlen) > 0.05:
-        raise PuzzleError("A letter did not flip onto the bed.")
-    return bed
 
 
 def pack_letters(
@@ -1319,7 +1306,7 @@ def generate(
     letter_paths = []
     for ch, letter in zip(name, letters):
         path = stl_dir / f"letter_{ch}_{len(letter_paths) + 1}.stl"
-        bed = flip_for_print(letter)
+        bed = to_bed(letter)
         export_stl(bed, path, 0.045, 0.06)
         bed_letters.append(bed)
         letter_paths.append(path)
@@ -1382,7 +1369,7 @@ def generate(
         "scaled": plan.scale < 0.995,
         "diagonal": True,
         "print_span": round(max(spun.xlen, spun.ylen), 1),
-        "shiny_top": True,
+        "shiny_top": False,
         "letter_plates": len(letter_plates),
         "letters_per_plate": MAX_LETTERS_PER_PLATE,
         "font_size": round(plan.font_size, 2),
