@@ -29,17 +29,17 @@ Small cuts in the top edge are the assembly order: one cut on the first piece, t
 
 ## Plates
 
-Open these in Bambu Studio. They are already arranged for the P2S and set to the **0.20 mm Standard** PLA profile, 0.4 mm nozzle.
+Open **`drawer_dividers.3mf`** in Bambu Studio. Every part is already on its own plate, and the file uses the **0.20 mm Standard** PLA profile for a 0.4 mm nozzle.
 
-- `plates/plate_00_test_fit.3mf` — Test rail, Test strut, Test joint A, Test joint B, Test pin
-- `plates/plate_01.3mf` — Strut B #1, Strut B #2, Pin 1, Pin 2
-- `plates/plate_02.3mf` — Strut B #3, Rail B, Pin 3, Pin 4, Pin 5, Pin 6
-- `plates/plate_03.3mf` — Rail D, Rail A, Pin 7
-- `plates/plate_04.3mf` — Rail C, Rail E
-- `plates/plate_05.3mf` — Strut A #1, Strut A #2
-- `plates/plate_06.3mf` — Strut A #3
+- **Test fit** — Test rail, Test strut, Test joint A, Test joint B, Test pin
+- **Plate 2** — Strut B #1, Strut B #2, Pin 1, Pin 2
+- **Plate 3** — Strut B #3, Rail B, Pin 3, Pin 4, Pin 5, Pin 6
+- **Plate 4** — Rail D, Rail A, Pin 7
+- **Plate 5** — Rail C, Rail E
+- **Plate 6** — Strut A #1, Strut A #2
+- **Plate 7** — Strut A #3
 
-Print **the test plate first**. The two long bars should slide together to half height and sit flush. The dovetail should press together through the thickness, and the pin should drop in from the top with firm finger pressure. If a joint is too tight to assemble, stop and do not print the rest — the fit needs a little more clearance.
+Print **Test fit** first. The two long bars should slide together to half height and sit flush. The dovetail should press together through the thickness, and the pin should drop in from the top with firm finger pressure. If a joint is too tight to assemble, stop and do not print the rest — the fit needs a little more clearance.
 
 ## Slicer settings
 

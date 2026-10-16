@@ -746,7 +746,25 @@ def project_settings() -> dict:
     }
 
 
-def write_3mf(path: Path, objects: list[dict], title: str) -> None:
+def plate_columns(count: int) -> int:
+    """Match Bambu Studio's plate grid: columns are round(sqrt(count)), rounded up."""
+    value = math.sqrt(count)
+    rounded = math.floor(value + 0.5)
+    if value > rounded:
+        return int(rounded) + 1
+    return max(1, int(rounded))
+
+
+def plate_origin(index: int, count: int) -> tuple[float, float]:
+    """World offset of a plate. Studio lays plates on a grid with a 20% gap."""
+    cols = plate_columns(count)
+    stride = BED * 1.2
+    col = index % cols
+    row = index // cols
+    return col * stride, -row * stride
+
+
+def write_3mf(path: Path, plates: list[dict], title: str) -> None:
     def mesh_xml(verts, tris) -> str:
         v_lines = [f'<vertex x="{x:.4f}" y="{y:.4f}" z="{z:.4f}"/>' for x, y, z in verts]
         t_lines = [f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in tris]
@@ -760,25 +778,32 @@ def write_3mf(path: Path, objects: list[dict], title: str) -> None:
     object_xml = []
     build_items = []
     model_objects = []
-    plate_instances = []
+    plate_xml = []
     assemble_items = []
-    for index, obj in enumerate(objects):
-        object_id = index + 1
-        verts, tris = obj["mesh"]
-        if boundary_edges(tris) != 0:
-            raise SystemExit(f"{obj['name']} mesh is not closed")
-        object_xml.append(
-            f'<object id="{object_id}" name="{escape(obj["name"])}" type="model">'
-            f"{mesh_xml(verts, tris)}</object>"
-        )
-        # Bambu Studio's bed origin is the center of the plate.
-        x = obj["x"] - BED / 2.0
-        y = obj["y"] - BED / 2.0
-        build_items.append(
-            f'<item objectid="{object_id}" transform="1 0 0 0 1 0 0 0 1 {x:.4f} {y:.4f} 0" printable="1"/>'
-        )
-        model_objects.append(
-            f'''  <object id="{object_id}">
+    object_id = 1
+    plate_count = len(plates)
+    if plate_count < 1:
+        raise SystemExit("No plates to write")
+    for plate_index, plate in enumerate(plates):
+        origin_x, origin_y = plate_origin(plate_index, plate_count)
+        instances = []
+        for obj in plate["objects"]:
+            verts, tris = obj["mesh"]
+            if boundary_edges(tris) != 0:
+                raise SystemExit(f"{obj['name']} mesh is not closed")
+            object_xml.append(
+                f'<object id="{object_id}" name="{escape(obj["name"])}" type="model">'
+                f"{mesh_xml(verts, tris)}</object>"
+            )
+            # Bed center is the origin. Later plates sit on Studio's plate grid.
+            x = obj["x"] - BED / 2.0 + origin_x
+            y = obj["y"] - BED / 2.0 + origin_y
+            transform = f"1 0 0 0 1 0 0 0 1 {x:.4f} {y:.4f} 0"
+            build_items.append(
+                f'<item objectid="{object_id}" transform="{transform}" printable="1"/>'
+            )
+            model_objects.append(
+                f'''  <object id="{object_id}">
     <metadata key="name" value="{escape(obj["name"])}"/>
     <metadata key="extruder" value="1"/>
     <part id="{object_id}" subtype="normal_part">
@@ -787,17 +812,26 @@ def write_3mf(path: Path, objects: list[dict], title: str) -> None:
       <mesh_stat face_count="{len(tris)}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/>
     </part>
   </object>'''
-        )
-        plate_instances.append(
-            f'''    <model_instance>
+            )
+            instances.append(
+                f'''    <model_instance>
       <metadata key="object_id" value="{object_id}"/>
       <metadata key="instance_id" value="0"/>
       <metadata key="identify_id" value="{object_id}"/>
     </model_instance>'''
-        )
-        assemble_items.append(
-            f'<assemble_item object_id="{object_id}" instance_id="0" '
-            f'transform="1 0 0 0 1 0 0 0 1 {x:.4f} {y:.4f} 0" offset="0 0 0"/>'
+            )
+            assemble_items.append(
+                f'<assemble_item object_id="{object_id}" instance_id="0" '
+                f'transform="{transform}" offset="0 0 0"/>'
+            )
+            object_id += 1
+        plate_xml.append(
+            f'''  <plate>
+    <metadata key="plater_id" value="{plate_index + 1}"/>
+    <metadata key="plater_name" value="{escape(plate["name"])}"/>
+    <metadata key="locked" value="false"/>
+{chr(10).join(instances)}
+  </plate>'''
         )
 
     model = f'''<?xml version="1.0" encoding="UTF-8"?>
@@ -816,12 +850,7 @@ def write_3mf(path: Path, objects: list[dict], title: str) -> None:
     model_settings = f'''<?xml version="1.0" encoding="UTF-8"?>
 <config>
 {chr(10).join(model_objects)}
-  <plate>
-    <metadata key="plater_id" value="1"/>
-    <metadata key="plater_name" value=""/>
-    <metadata key="locked" value="false"/>
-{chr(10).join(plate_instances)}
-  </plate>
+{chr(10).join(plate_xml)}
   <assemble>
     {''.join(assemble_items)}
   </assemble>
@@ -846,6 +875,44 @@ def write_3mf(path: Path, objects: list[dict], title: str) -> None:
         zf.writestr("3D/3dmodel.model", model)
         zf.writestr("Metadata/project_settings.config", json.dumps(project_settings(), indent=2))
         zf.writestr("Metadata/model_settings.config", model_settings)
+
+
+def _check_project(path: Path, plate_count: int) -> None:
+    """The project is one file, and each plate owns a distinct set of parts."""
+    import xml.etree.ElementTree as ET
+
+    with zipfile.ZipFile(path) as archive:
+        settings = ET.fromstring(archive.read("Metadata/model_settings.config"))
+        model = ET.fromstring(archive.read("3D/3dmodel.model"))
+    ns = {"m": "http://schemas.microsoft.com/3dmanufacturing/core/2015/02"}
+    plates = settings.findall("plate")
+    if len(plates) != plate_count:
+        raise SystemExit(f"Project has {len(plates)} plates, expected {plate_count}")
+    assigned = []
+    for plate in plates:
+        ids = [
+            node.attrib["value"]
+            for node in plate.findall("model_instance/metadata")
+            if node.attrib.get("key") == "object_id"
+        ]
+        if not ids:
+            raise SystemExit("A plate has no parts")
+        assigned.extend(ids)
+    if len(assigned) != len(set(assigned)):
+        raise SystemExit("A part is on more than one plate")
+    build_ids = [
+        item.attrib["objectid"] for item in model.findall("m:build/m:item", ns)
+    ]
+    if sorted(build_ids, key=int) != sorted(assigned, key=int):
+        raise SystemExit("Plate assignment does not match the model")
+    # Later plates must be shifted onto Studio's plate grid, not stacked on plate 1.
+    transforms = []
+    for item in model.findall("m:build/m:item", ns):
+        transforms.append([float(part) for part in item.attrib["transform"].split()])
+    xs = [row[9] for row in transforms]
+    if plate_count > 1 and max(xs) - min(xs) < BED:
+        raise SystemExit("Plates are stacked on top of each other")
+    print(f"  {path.name}: {plate_count} plates, {len(assigned)} parts")
 
 
 def render_layout(path: Path, strut_centers: list[float], rail_centers: list[float], clear_w: float, clear_d: float) -> None:
@@ -1061,7 +1128,7 @@ def write_readme(info: dict) -> None:
     plate_lines = []
     for plate in info["plates"]:
         names = ", ".join(plate["items"])
-        plate_lines.append(f"- `{plate['file']}` — {names}")
+        plate_lines.append(f"- **{plate['name']}** — {names}")
     bom = "\n".join(
         f"| {row['name']} | {row['copies']} | {row['size']} | {row['grams']:.0f} g |"
         for row in info["bom"]
@@ -1091,11 +1158,11 @@ Small cuts in the top edge are the assembly order: one cut on the first piece, t
 
 ## Plates
 
-Open these in Bambu Studio. They are already arranged for the P2S and set to the **0.20 mm Standard** PLA profile, 0.4 mm nozzle.
+Open **`drawer_dividers.3mf`** in Bambu Studio. Every part is already on its own plate, and the file uses the **0.20 mm Standard** PLA profile for a 0.4 mm nozzle.
 
 {chr(10).join(plate_lines)}
 
-Print **the test plate first**. The two long bars should slide together to half height and sit flush. The dovetail should press together through the thickness, and the pin should drop in from the top with firm finger pressure. If a joint is too tight to assemble, stop and do not print the rest — the fit needs a little more clearance.
+Print **Test fit** first. The two long bars should slide together to half height and sit flush. The dovetail should press together through the thickness, and the pin should drop in from the top with firm finger pressure. If a joint is too tight to assemble, stop and do not print the rest — the fit needs a little more clearance.
 
 ## Slicer settings
 
@@ -1340,9 +1407,9 @@ def main() -> None:
         print(f"  {name} {foot[0]:.1f} x {foot[1]:.1f} mm")
 
     print("Packing plates...")
-    PLATE_DIR.mkdir(parents=True, exist_ok=True)
-    for stale in PLATE_DIR.glob("*.3mf"):
-        stale.unlink()
+    if PLATE_DIR.exists():
+        for stale in PLATE_DIR.glob("*.3mf"):
+            stale.unlink()
     prod_items = []
     for piece in pieces:
         for copy in range(piece.copies):
@@ -1372,9 +1439,13 @@ def main() -> None:
     if len(test_plates) != 1:
         raise SystemExit("Test coupon should fit on one plate")
 
-    plate_info = []
+    packed = [("Test fit", test_plates[0])]
+    for index, plate in enumerate(prod_plates, start=2):
+        packed.append((f"Plate {index}", plate))
 
-    def emit(plate_items, filename, title):
+    plates_3mf = []
+    plate_info = []
+    for name, plate_items in packed:
         objects = []
         for item in plate_items:
             mesh = item["mesh"]
@@ -1385,19 +1456,13 @@ def main() -> None:
             if x < 4 or y < 4 or x + item["pw"] > BED - 4 or y + item["ph"] > BED - 4:
                 raise SystemExit(f"{item['name']} lands outside the P2S bed")
             objects.append({"name": item["name"], "mesh": mesh, "x": x, "y": y})
-        path = PLATE_DIR / filename
-        write_3mf(path, objects, title)
-        plate_info.append(
-            {
-                "file": f"plates/{filename}",
-                "items": [item["name"] for item in plate_items],
-            }
-        )
-        print(f"  {filename}: {', '.join(item['name'] for item in plate_items)}")
+        plates_3mf.append({"name": name, "objects": objects})
+        plate_info.append({"name": name, "items": [item["name"] for item in plate_items]})
+        print(f"  {name}: {', '.join(item['name'] for item in plate_items)}")
 
-    emit(test_plates[0], "plate_00_test_fit.3mf", "Drawer divider test fit")
-    for index, plate in enumerate(prod_plates, start=1):
-        emit(plate, f"plate_{index:02d}.3mf", f"Drawer dividers plate {index}")
+    project = ROOT / "drawer_dividers.3mf"
+    write_3mf(project, plates_3mf, "Drawer dividers")
+    _check_project(project, len(plates_3mf))
 
     total_grams = pin_grams * joint_count
     bom = []
