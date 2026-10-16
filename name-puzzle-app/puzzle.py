@@ -623,14 +623,17 @@ PROCESS_SETTINGS = {
     "top_shell_layers": TOP_SHELLS,
     "bottom_shell_layers": BOTTOM_SHELLS,
     "elefant_foot_compensation": "0.1",
-    # Topmost irons the show face and leaves the magnet lid alone.
+    # Monotonic lines lay the show face in one direction. Ironing then
+    # crosses that face. Topmost leaves the magnet lid alone.
     # zig-zag is Bambu's rectilinear ironing pattern.
+    "top_surface_pattern": "monotonicline",
+    "monotonic_travel_into_wall": "20%",
     "ironing_type": "topmost",
     "ironing_pattern": "zig-zag",
     "ironing_flow": "10%",
     "ironing_spacing": "0.1",
-    "ironing_speed": "20",
-    "ironing_inset": "0",
+    "ironing_speed": "15",
+    "ironing_inset": "0.2",
     "ironing_direction": "45",
     "brim_type": "no_brim",
 }

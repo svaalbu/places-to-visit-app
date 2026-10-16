@@ -13,7 +13,7 @@ The board is turned 45° on a Bambu Lab P2S. Each letter has two magnet pockets 
 | Plate 2, Letters 1 | J, O, H, A, spaced 58 mm apart. Prints by object. Pause at 2.80 mm |
 | Plate 3, Letters 2 | N, N, E, spaced 58 mm apart. Prints by object. Pause at 2.80 mm |
 
-The file already sets 0.20 mm layers, 5 top shells, 5 bottom shells, 0.1 mm elephant foot compensation, no brim, and ironing on the topmost surface. Ironing uses rectilinear lines, 10% flow, 0.1 mm spacing, and 20 mm/s. Five shells close the covers, and the middle of the floor stays infill. Print the board slots up and the letters show-face up, in PLA.
+The file already sets 0.20 mm layers, 5 top shells, 5 bottom shells, 0.1 mm elephant foot compensation, and no brim. The show face is monotonic lines, then ironed on the topmost surface: rectilinear lines, 10% flow, 0.1 mm spacing, 15 mm/s, and a 0.2 mm inset. Five shells close the covers, and the middle of the floor stays infill. Print the board slots up and the letters show-face up, in PLA.
 
 A layer pause only shows up in Bambu Studio when that plate is set to print by layer. The marker belongs at 2.80 mm on the letter plates. The printer stops before that layer, while the pocket is still open.
 

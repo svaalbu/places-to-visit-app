@@ -42,6 +42,6 @@ The letter pause is at 2.80 mm, while the pocket is still open. The rest of the 
 
 ## Print
 
-The 3MF already selects the P2S, 0.20 mm layers, 5 top shells, 5 bottom shells, 0.1 mm elephant foot compensation, no brim, and ironing on the topmost surface. Ironing uses rectilinear lines, 10% flow, 0.1 mm spacing, and 20 mm/s. Five shells are 1.0 mm of solid plastic on each face. The middle of the 3.5 mm floor stays infill. Board slots up, printed by layer. Letter plates print by object, with the show face up. PLA. If one letter is tight, scale that letter to 99%, not the board. At most four letters share a plate.
+The 3MF already selects the P2S, 0.20 mm layers, 5 top shells, 5 bottom shells, 0.1 mm elephant foot compensation, and no brim. The show face is monotonic lines, then ironed. Ironing stays on the topmost surface, with rectilinear lines, 10% flow, 0.1 mm spacing, 15 mm/s, and a 0.2 mm inset so the edge stays sharp. Five shells are 1.0 mm of solid plastic on each face. The middle of the 3.5 mm floor stays infill. Board slots up, printed by layer. Letter plates print by object, with the show face up. PLA. If one letter is tight, scale that letter to 99%, not the board. At most four letters share a plate.
 
 Letters set in [Lilita One](fonts/OFL.txt) by Juan Montoreano.
