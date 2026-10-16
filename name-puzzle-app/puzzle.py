@@ -17,7 +17,7 @@ them so the discs stay buried.
 
 Optional 5x2 mm magnet pockets sit inside each letter (two) and in the
 board floor under that letter. The project pauses before the layer that
-covers them. Letter plates print one object at a time.
+covers them. Every plate prints by layer, so the pause is available.
 """
 
 from __future__ import annotations
@@ -84,9 +84,6 @@ PAUSE_GCODE = "M400 U1"
 PLATE_STRIDE = BED * 1.2
 MAX_LETTERS = 12
 MAX_LETTERS_PER_PLATE = 4
-# P2S by-object printing needs more than 57 mm between objects. The gap is
-# the closest the boxes can be, including on a diagonal.
-OBJECT_GAP = 58.0
 
 _CADQUERY_HINT = (
     "CadQuery is not installed in this Python. The backend virtualenv is "
@@ -716,17 +713,14 @@ def _fits_on_plate(
 def pack_letters(
     bed_letters: list[cq.Workplane],
 ) -> list[tuple[int, tuple[float, float, float]]]:
-    """Lay letters on later plates, at most four per plate, centered.
-
-    The gap leaves room for the toolhead, so those plates can print by object.
-    """
+    """Lay letters on later plates, at most four per plate, centered."""
     groups = [
         list(range(start, min(start + MAX_LETTERS_PER_PLATE, len(bed_letters))))
         for start in range(0, len(bed_letters), MAX_LETTERS_PER_PLATE)
     ]
     plate_count = 1 + len(groups)
     sizes = [bbox_of(letter) for letter in bed_letters]
-    gap = OBJECT_GAP
+    gap = 8.0
     margin = 8.0
     max_w = BED - 2 * margin
     placements: list[tuple[int, tuple[float, float, float]] | None] = [None] * len(bed_letters)
@@ -768,34 +762,6 @@ def pack_letters(
                 x += bb.xlen + gap
             y += row_h + gap
     return placements  # type: ignore[return-value]
-
-
-def _letter_clearance(
-    bed_letters: list[cq.Workplane],
-    placements: list[tuple[int, tuple[float, float, float]]],
-) -> float:
-    """Closest distance between letter boxes that share a plate."""
-    boxes = []
-    for letter, (plate, pos) in zip(bed_letters, placements):
-        bb = bbox_of(letter)
-        boxes.append((plate, pos[0], pos[1], pos[0] + bb.xlen, pos[1] + bb.ylen))
-    closest = math.inf
-    for index, left in enumerate(boxes):
-        for right in boxes[index + 1 :]:
-            if left[0] != right[0]:
-                continue
-            gap_x = max(left[1] - right[3], right[1] - left[3])
-            gap_y = max(left[2] - right[4], right[2] - left[4])
-            if gap_x > 0 and gap_y > 0:
-                distance = math.hypot(gap_x, gap_y)
-            elif gap_x > 0:
-                distance = gap_x
-            elif gap_y > 0:
-                distance = gap_y
-            else:
-                distance = max(gap_x, gap_y)
-            closest = min(closest, distance)
-    return closest
 
 
 def _pause_xml(pauses: list[tuple[int, float]]) -> str:
@@ -919,14 +885,12 @@ def write_3mf(
     if len(settings["different_settings_to_system"]) != filament_count + 2:
         raise PuzzleError("The filament overrides are the wrong length.")
     def plate_xml(plate_id: int, name: str) -> str:
-        # Letter plates print one object at a time. The board stays by layer.
-        sequence = ""
-        if plate_id != 1:
-            sequence = '\n    <metadata key="print_sequence" value="by object"/>'
+        # By layer is required for a height pause. By object greys that out.
         return f'''  <plate>
     <metadata key="plater_id" value="{plate_id}"/>
     <metadata key="plater_name" value="{escape(name)}"/>
-    <metadata key="locked" value="false"/>{sequence}
+    <metadata key="locked" value="false"/>
+    <metadata key="print_sequence" value="by layer"/>
 {chr(10).join(plate_instances[plate_id])}
   </plate>'''
 
@@ -1014,14 +978,10 @@ def assert_3mf(
         raise PuzzleError("The 3MF is not marked as a Bambu Studio project.")
     if settings_xml.count("<plate>") != plate_count:
         raise PuzzleError("The 3MF has the wrong number of plates.")
-    for plate in settings_xml.split("<plate>")[1:]:
-        head = plate.split("</plate>", 1)[0]
-        by_object = 'key="print_sequence" value="by object"' in head
-        if 'key="plater_id" value="1"' in head:
-            if by_object:
-                raise PuzzleError("The board plate is set to print by object.")
-        elif not by_object:
-            raise PuzzleError("A letter plate is not set to print by object.")
+    if 'print_sequence" value="by object"' in settings_xml:
+        raise PuzzleError("A plate is set to print by object, which disables the pause.")
+    if settings_xml.count('print_sequence" value="by layer"') != plate_count:
+        raise PuzzleError("A plate is not set to print by layer.")
     if not pauses:
         if pause_xml:
             raise PuzzleError("The 3MF pauses a print that has no magnets.")
@@ -1318,8 +1278,6 @@ def generate(
     board_pos = ((BED - spun.xlen) / 2.0, (BED - spun.ylen) / 2.0, 0.0)
     _fits_on_plate(board_pos, (spun.xlen, spun.ylen), 1, plate_count)
     letter_pos = pack_letters(bed_letters)
-    if len(bed_letters) > 1 and _letter_clearance(bed_letters, letter_pos) <= 57.0:
-        raise PuzzleError("Letters on one plate are too close to print by object.")
 
     colors = [BOARD_COLOR, *[item["color"] for item in letter_meta]]
     seen: Counter[str] = Counter()
