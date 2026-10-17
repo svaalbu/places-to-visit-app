@@ -795,9 +795,10 @@ def write_3mf(path: Path, plates: list[dict], title: str) -> None:
                 f'<object id="{object_id}" name="{escape(obj["name"])}" type="model">'
                 f"{mesh_xml(verts, tris)}</object>"
             )
-            # Bed center is the origin. Later plates sit on Studio's plate grid.
-            x = obj["x"] - BED / 2.0 + origin_x
-            y = obj["y"] - BED / 2.0 + origin_y
+            # The P2S bed origin is the front-left corner. Later plates sit on
+            # Studio's grid: each step is 1.2 bed widths, and rows go down in Y.
+            x = obj["x"] + origin_x
+            y = obj["y"] + origin_y
             transform = f"1 0 0 0 1 0 0 0 1 {x:.4f} {y:.4f} 0"
             build_items.append(
                 f'<item objectid="{object_id}" transform="{transform}" printable="1"/>'
@@ -905,13 +906,25 @@ def _check_project(path: Path, plate_count: int) -> None:
     ]
     if sorted(build_ids, key=int) != sorted(assigned, key=int):
         raise SystemExit("Plate assignment does not match the model")
-    # Later plates must be shifted onto Studio's plate grid, not stacked on plate 1.
-    transforms = []
+    positions = {}
     for item in model.findall("m:build/m:item", ns):
-        transforms.append([float(part) for part in item.attrib["transform"].split()])
-    xs = [row[9] for row in transforms]
-    if plate_count > 1 and max(xs) - min(xs) < BED:
-        raise SystemExit("Plates are stacked on top of each other")
+        numbers = [float(part) for part in item.attrib["transform"].split()]
+        positions[item.attrib["objectid"]] = (numbers[9], numbers[10])
+    # Each part's corner must land on its own plate. The bed origin is the
+    # front-left corner, and the next row of plates is below the first.
+    for plate_index, plate in enumerate(plates):
+        origin_x, origin_y = plate_origin(plate_index, plate_count)
+        ids = [
+            node.attrib["value"]
+            for node in plate.findall("model_instance/metadata")
+            if node.attrib.get("key") == "object_id"
+        ]
+        for object_id in ids:
+            x, y = positions[object_id]
+            if not (origin_x <= x <= origin_x + BED and origin_y <= y <= origin_y + BED):
+                raise SystemExit(
+                    f"Part {object_id} at {x:.1f},{y:.1f} is off plate {plate_index + 1}"
+                )
     print(f"  {path.name}: {plate_count} plates, {len(assigned)} parts")
 
 
