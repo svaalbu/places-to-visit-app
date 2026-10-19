@@ -6,4 +6,4 @@ Print files, colors, and slicer settings are in [finn-name-puzzle/README.md](fin
 
 # Drawer dividers
 
-Honeycomb PLA dividers for a 745 × 310 × 140 mm drawer, split into pieces that fit a Bambu Lab P2S. Print files and assembly are in [drawer-dividers/README.md](drawer-dividers/README.md).
+Open-grid PLA dividers for a 745 × 310 × 140 mm drawer, split into pieces that fit a Bambu Lab P2S. Print files and assembly are in [drawer-dividers/README.md](drawer-dividers/README.md).

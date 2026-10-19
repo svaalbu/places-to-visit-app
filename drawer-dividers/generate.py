@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Honeycomb drawer dividers for a Bambu Lab P2S, PLA only.
+"""Open-grid drawer dividers for a Bambu Lab P2S, PLA only.
 
 The grid is an original half-lap design inspired by light, fast-printing
-drawer dividers: open honeycomb walls, pieces that fit a 256 mm bed, and
-joints you can press together by hand. It is sized for a drawer whose clear
-inside is 745 mm wide, 310 mm deep, and 140 mm high.
+drawer dividers: walls with large straight windows, pieces that fit a 256 mm
+bed, and joints you can press together by hand. It is sized for a drawer
+whose clear inside is 745 mm wide, 310 mm deep, and 140 mm high.
 
 Walls lie flat on the bed. Rails run left to right and have slots from the
 top. Struts run front to back and have slots from the bottom. Where a wall
@@ -71,11 +71,17 @@ TICK_W = 3.6
 TICK_D = 3.4
 TICK_GAP = 2.6
 
-# --- Honeycomb -------------------------------------------------------------
-HEX_R = 7.4
-HEX_RIB = 3.5
-HEX_BORDER = 8.0
-FEATURE_MARGIN = 6.5
+# --- Windows ---------------------------------------------------------------
+# A rib is two perimeters from each side of a 0.4 mm nozzle
+# (0.42 mm outer + 0.45 mm inner). They meet, so the slicer prints walls
+# only and has no infill left to fill. That is what makes the plate fast.
+RIB = 1.72
+FRAME = 1.72
+# Target opening. Each gap is stretched so nothing solid is left over.
+WINDOW_W = 26.0
+WINDOW_ROWS = 4
+# Solid band kept around slots, dovetails, and the finger notch.
+FEATURE_MARGIN = 3.6
 
 # --- Bed -------------------------------------------------------------------
 BED = 256.0
@@ -172,49 +178,75 @@ def _plan_cuts(
     return cuts
 
 
-def hexagon(cx: float, cy: float, radius: float) -> list[tuple[float, float]]:
-    """Pointy-top hexagon, center to vertex = radius."""
-    return [
-        (
-            cx + radius * math.cos(math.radians(90 + 60 * i)),
-            cy + radius * math.sin(math.radians(90 + 60 * i)),
-        )
-        for i in range(6)
-    ]
+def _merge_spans(spans: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    ordered = sorted((min(a, b), max(a, b)) for a, b in spans)
+    merged: list[list[float]] = []
+    for left, right in ordered:
+        if merged and left <= merged[-1][1]:
+            merged[-1][1] = max(merged[-1][1], right)
+        else:
+            merged.append([left, right])
+    return [(left, right) for left, right in merged]
 
 
-def hex_centers(length: float, height: float) -> list[tuple[float, float]]:
-    dx = math.sqrt(3) * HEX_R + HEX_RIB
-    dy = 1.5 * HEX_R + HEX_RIB * math.sqrt(3) / 2.0
-    centers = []
-    row = 0
-    y = HEX_BORDER + HEX_R
-    while y <= height - HEX_BORDER - HEX_R * 0.2:
-        offset = 0.0 if row % 2 == 0 else dx / 2.0
-        x = HEX_BORDER + HEX_R + offset
-        while x <= length - HEX_BORDER - HEX_R * 0.2:
-            centers.append((x, y))
-            x += dx
-        row += 1
-        y += dy
-    return centers
+def _free_spans(
+    start: float, end: float, blocked: list[tuple[float, float]]
+) -> list[tuple[float, float]]:
+    free = []
+    cursor = start
+    for left, right in _merge_spans(blocked):
+        if right <= cursor or left >= end:
+            continue
+        left = max(left, cursor)
+        if left > cursor + 1e-6:
+            free.append((cursor, left))
+        cursor = max(cursor, min(right, end))
+    if cursor < end - 1e-6:
+        free.append((cursor, end))
+    return free
 
 
-def overlaps_rect(
-    pts: list[tuple[float, float]], rect: tuple[float, float, float, float]
-) -> bool:
-    left, bottom, right, top = rect
-    for x, y in pts:
-        if left <= x <= right and bottom <= y <= top:
-            return True
-    return False
+def window_polygons(
+    x0: float,
+    x1: float,
+    height: float,
+    keepouts: list[tuple[float, float, float, float]],
+) -> list[list[tuple[float, float]]]:
+    """Openings that fill the wall and leave only a perimeter-thick rib.
 
-
-def inside_rect(
-    pts: list[tuple[float, float]], rect: tuple[float, float, float, float]
-) -> bool:
-    left, bottom, right, top = rect
-    return all(left <= x <= right and bottom <= y <= top for x, y in pts)
+    Rows share the height exactly, and each free span is split into windows
+    near WINDOW_W, so the slicer never has to solid-fill a leftover strip.
+    """
+    usable_h = height - 2 * FRAME
+    hole_h = (usable_h - (WINDOW_ROWS - 1) * RIB) / WINDOW_ROWS
+    polygons = []
+    y = FRAME
+    for _ in range(WINDOW_ROWS):
+        y1 = y + hole_h
+        blocked = [
+            (left, right)
+            for left, bottom, right, top in keepouts
+            if bottom < y1 and top > y
+        ]
+        for span_a, span_b in _free_spans(x0 + FRAME, x1 - FRAME, blocked):
+            span = span_b - span_a
+            if span < 8.0:
+                continue
+            count = max(1, round((span + RIB) / (WINDOW_W + RIB)))
+            hole_w = (span - (count - 1) * RIB) / count
+            while count > 1 and hole_w < 12.0:
+                count -= 1
+                hole_w = (span - (count - 1) * RIB) / count
+            if hole_w < 8.0:
+                continue
+            x = span_a
+            for _window in range(count):
+                polygons.append(
+                    [(x, y), (x + hole_w, y), (x + hole_w, y1), (x, y1)]
+                )
+                x += hole_w + RIB
+        y = y1 + RIB
+    return polygons
 
 
 def prism(pts: list[tuple[float, float]], z0: float = 0.0, height: float = WALL_T):
@@ -456,13 +488,7 @@ def build_piece(piece: Piece) -> cq.Workplane:
         keepouts.append((tick_x - 2.5, WALL_H - TICK_D - 4.0, tick_x + TICK_W + 2.5, WALL_H + 2.0))
         tick_x += TICK_W + TICK_GAP
 
-    safe = (u0 + HEX_BORDER, HEX_BORDER, u1 - HEX_BORDER, WALL_H - HEX_BORDER)
-    for cx, cy in hex_centers(length + DOVETAIL_DEPTH, WALL_H):
-        pts = hexagon(cx, cy, HEX_R)
-        if not inside_rect(pts, safe):
-            continue
-        if any(overlaps_rect(pts, rect) for rect in keepouts):
-            continue
+    for pts in window_polygons(u0, u1, WALL_H, keepouts):
         holes.append(cutter(pts))
 
     return carve(fuse(parts), holes)
@@ -500,7 +526,6 @@ def build_test_pair() -> tuple[cq.Workplane, cq.Workplane]:
     def plain(open_top: bool) -> cq.Workplane:
         body = prism([(0.0, 0.0), (length, 0.0), (length, WALL_H), (0.0, WALL_H)])
         hole = cutter(slot_polygon(mid, WALL_T + SLOT_CLEAR, open_top))
-        safe = (HEX_BORDER, HEX_BORDER, length - HEX_BORDER, WALL_H - HEX_BORDER)
         keep = (
             mid - (WALL_T + SLOT_CLEAR) / 2.0 - FEATURE_MARGIN,
             -5.0,
@@ -508,10 +533,8 @@ def build_test_pair() -> tuple[cq.Workplane, cq.Workplane]:
             WALL_H + 5.0,
         )
         holes = [hole]
-        for cx, cy in hex_centers(length, WALL_H):
-            pts = hexagon(cx, cy, HEX_R)
-            if inside_rect(pts, safe) and not overlaps_rect(pts, keep):
-                holes.append(cutter(pts))
+        for pts in window_polygons(0.0, length, WALL_H, [keep]):
+            holes.append(cutter(pts))
         return carve(body, holes)
 
     return plain(True), plain(False)
@@ -737,12 +760,20 @@ def project_settings() -> dict:
         "extruder_variant_list": [
             "Direct Drive Standard,Direct Drive High Flow,Direct Drive E3D High Flow"
         ],
+        # Ribs are sized for the standard 2 walls. 100% infill would solid-fill
+        # the joint blocks and put the time back.
+        "wall_loops": "2",
+        "sparse_infill_density": "15%",
         "inherits_group": [
             "0.20mm Standard @BBL P2S",
             *filaments,
             "Bambu Lab P2S 0.4 nozzle",
         ],
-        "different_settings_to_system": ["", "filament_colour", ""],
+        "different_settings_to_system": [
+            "wall_loops;sparse_infill_density",
+            "filament_colour",
+            "",
+        ],
     }
 
 
@@ -1154,7 +1185,7 @@ The layout is **{COLS} compartments across and {ROWS} front to back**. Each open
 
 ![Layout](preview/layout_top.png)
 
-The walls are honeycomb so they stay stiff without using a full sheet of plastic. Long walls are split into pieces that fit the 256 mm bed. Rails (left to right) drop onto struts (front to back) with half-lap slots. Pieces in a straight line lock with a dovetail and a small pin.
+The walls are an open grid of straight windows. A 0.4 mm nozzle prints each rib as two perimeters and nothing else, which is much faster than a fine honeycomb. Long walls are split into pieces that fit the 256 mm bed. Rails (left to right) drop onto struts (front to back) with half-lap slots. Pieces in a straight line lock with a dovetail and a small pin.
 
 ![Parts](preview/parts.png)
 
@@ -1182,9 +1213,9 @@ Print **Test fit** first. The two long bars should slide together to half height
 - Printer: Bambu Lab P2S, 0.4 mm nozzle
 - Material: PLA. Use the Bambu PLA preset (or your PLA's temperatures).
 - Layer height: **0.20 mm**. The wall is 3.2 mm thick, which is exactly 16 layers. Do not switch to 0.24 mm; the thickness would no longer match the slots.
-- Walls: 3. Infill: 100%. The honeycomb is already in the model, and the wall is only 3.2 mm thick.
+- Walls: **2**. Infill: **15%**. The ribs are already the structure, and they are sized so two perimeters meet. 100% infill only fills the solid joint areas and makes the plate much slower. Three walls overfill the ribs.
 - Supports: off. Brim: off. The parts lie flat and have a large first layer.
-- Leave the parts in the orientation they load. The honeycomb face is the top.
+- Leave the parts in the orientation they load. The window face is the top.
 
 ## Assembly
 
@@ -1202,7 +1233,7 @@ The drawer walls are the outer sides of the compartments. The printed grid is th
 
 The numbers at the top of `generate.py` are the drawer size, the compartment counts, and the wall height. Change them and run `python3 generate.py`. Keep `WALL_H` at 110 mm or more so the pin stays clear of the dovetail, and keep each piece under about 220 mm so the dovetail still fits the bed.
 
-This is an original layout for these drawer measurements. The honeycomb-and-split-wall idea follows the same practical approach as the customizable IKEA BROR divider on MakerWorld: light walls, little filament, and pieces you can adjust to the drawer you actually have.
+This is an original layout for these drawer measurements. The open-wall idea follows the same practical approach as the customizable IKEA BROR divider on MakerWorld: light walls, little filament, and pieces you can adjust to the drawer you actually have.
 """
     (ROOT / "README.md").write_text(text, encoding="utf-8")
 

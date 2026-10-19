@@ -6,23 +6,23 @@ The layout is **4 compartments across and 2 front to back**. Each opening is abo
 
 ![Layout](preview/layout_top.png)
 
-The walls are honeycomb so they stay stiff without using a full sheet of plastic. Long walls are split into pieces that fit the 256 mm bed. Rails (left to right) drop onto struts (front to back) with half-lap slots. Pieces in a straight line lock with a dovetail and a small pin.
+The walls are an open grid of straight windows. A 0.4 mm nozzle prints each rib as two perimeters and nothing else, which is much faster than a fine honeycomb. Long walls are split into pieces that fit the 256 mm bed. Rails (left to right) drop onto struts (front to back) with half-lap slots. Pieces in a straight line lock with a dovetail and a small pin.
 
 ![Parts](preview/parts.png)
 
 ## What to print
 
-About **504 g of PLA** for the whole grid, plus a short test plate. One spool is enough.
+About **200 g of PLA** for the whole grid, plus a short test plate. One spool is enough.
 
 | Part | Copies | Size on the bed | PLA each |
 | --- | ---: | --- | ---: |
-| Rail A | 1 | 160 × 120 × 3.2 mm | 43 g |
-| Rail B | 1 | 160 × 120 × 3.2 mm | 49 g |
-| Rail C | 1 | 160 × 120 × 3.2 mm | 50 g |
-| Rail D | 1 | 160 × 120 × 3.2 mm | 48 g |
-| Rail E | 1 | 148 × 120 × 3.2 mm | 42 g |
-| Strut A | 3 | 134 × 120 × 3.2 mm | 36 g |
-| Strut B | 3 | 186 × 120 × 3.2 mm | 54 g |
+| Rail A | 1 | 160 × 120 × 3.2 mm | 15 g |
+| Rail B | 1 | 160 × 120 × 3.2 mm | 22 g |
+| Rail C | 1 | 160 × 120 × 3.2 mm | 19 g |
+| Rail D | 1 | 160 × 120 × 3.2 mm | 22 g |
+| Rail E | 1 | 148 × 120 × 3.2 mm | 17 g |
+| Strut A | 3 | 134 × 120 × 3.2 mm | 13 g |
+| Strut B | 3 | 186 × 120 × 3.2 mm | 21 g |
 | Pin | 7 | 24 × 6 × 3.0 mm | 0.5 g |
 
 Small cuts in the top edge are the assembly order: one cut on the first piece, then two, then three, counting up. Rails go left to right in letter order. Struts go front to back, A in front of B. Print **3 of each strut**.
@@ -46,9 +46,9 @@ Print **Test fit** first. The two long bars should slide together to half height
 - Printer: Bambu Lab P2S, 0.4 mm nozzle
 - Material: PLA. Use the Bambu PLA preset (or your PLA's temperatures).
 - Layer height: **0.20 mm**. The wall is 3.2 mm thick, which is exactly 16 layers. Do not switch to 0.24 mm; the thickness would no longer match the slots.
-- Walls: 3. Infill: 100%. The honeycomb is already in the model, and the wall is only 3.2 mm thick.
+- Walls: **2**. Infill: **15%**. The ribs are already the structure, and they are sized so two perimeters meet. 100% infill only fills the solid joint areas and makes the plate much slower. Three walls overfill the ribs.
 - Supports: off. Brim: off. The parts lie flat and have a large first layer.
-- Leave the parts in the orientation they load. The honeycomb face is the top.
+- Leave the parts in the orientation they load. The window face is the top.
 
 ## Assembly
 
@@ -66,4 +66,4 @@ The drawer walls are the outer sides of the compartments. The printed grid is th
 
 The numbers at the top of `generate.py` are the drawer size, the compartment counts, and the wall height. Change them and run `python3 generate.py`. Keep `WALL_H` at 110 mm or more so the pin stays clear of the dovetail, and keep each piece under about 220 mm so the dovetail still fits the bed.
 
-This is an original layout for these drawer measurements. The honeycomb-and-split-wall idea follows the same practical approach as the customizable IKEA BROR divider on MakerWorld: light walls, little filament, and pieces you can adjust to the drawer you actually have.
+This is an original layout for these drawer measurements. The open-wall idea follows the same practical approach as the customizable IKEA BROR divider on MakerWorld: light walls, little filament, and pieces you can adjust to the drawer you actually have.
