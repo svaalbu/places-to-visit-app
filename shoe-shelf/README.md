@@ -8,6 +8,20 @@ A shoe shelf for the inside of a cabinet opening **210 mm wide, 380 mm deep, and
 
 The printed shelf is **206 × 372 mm**. That leaves 2 mm of spare on each side and 4 mm at the front and back, so it can slide in. A pair of shoes sits side by side, heels toward the opening. The holes in the grid are about 10 mm across, small enough that a normal heel stays on top.
 
+## How the small-shoe shelf fits
+
+Nothing you print is 390 mm tall. The cabinet is the empty box. For shoes up to about 120 mm you print the short half **four times**. Glue them into two grids, then stack the grids.
+
+![Assembled three-row shelf with six small shoes](preview/assembled_iso.png)
+
+![Side and front of the same shelf](preview/how_it_fits.png)
+
+![The four halves pulled apart](preview/assembled_exploded.png)
+
+Each grid is two halves joined by the teeth in the middle. The lower grid stands on the cabinet floor. The upper grid stands on the lower one. That makes three rows, each about 125 mm clear. The dark shapes in the pictures are low shoes, 96 mm tall, one pair on each row.
+
+`preview/assembled_small_shoes.glb` is a 3D model of that assembly, for looking at. Do not print it. It is larger than the printer. The files to print are the halves below.
+
 ## Which version
 
 Measure one shoe standing on a table, from the table to the highest point of the shoe.
