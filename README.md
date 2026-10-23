@@ -1,5 +1,6 @@
-# FINN name puzzle
+# Printable parts
 
-A 3D-printable name puzzle for a Bambu Lab P2S: a chunky wooden-style board and the letters F I N N, each in a matching slot.
+Models in this repo are sized for a Bambu Lab P2S and PLA.
 
-Print files, colors, and slicer settings are in [finn-name-puzzle/README.md](finn-name-puzzle/README.md).
+- [FINN name puzzle](finn-name-puzzle/README.md) — a letter board with F, I, N, and N.
+- [Lattice shoe shelf](shoe-shelf/README.md) — a cabinet shoe shelf for a 210 × 380 × 390 mm opening.
