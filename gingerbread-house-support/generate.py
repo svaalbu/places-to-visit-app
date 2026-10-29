@@ -4,7 +4,7 @@
 The clip wraps the outside of one baked corner while the frosting sets.
 The inside faces stay a sharp 90 degrees and run all the way down to the
 table, so the cookie is not lifted. Everything else is thicker than the
-0.6 mm original: a 3.6 mm wall, a 2.4 mm sole, and solid gussets.
+0.6 mm original: a 4 mm wall, a 2.4 mm sole, and solid gussets.
 
 Run from this directory:
 
@@ -13,15 +13,22 @@ Run from this directory:
 
 from __future__ import annotations
 
+import json
 import struct
+import zipfile
+from collections import Counter
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 import numpy as np
 from manifold3d import Manifold
 
 ROOT = Path(__file__).resolve().parent
 STL_PATH = ROOT / "stl" / "gingerbread_corner_support.stl"
+PROJECT_PATH = ROOT / "gingerbread_corner_support.3mf"
 PREVIEW_DIR = ROOT / "preview"
+BED = 256.0
+GINGER = "#C67B3A"
 
 # Millimetres. The inside corner is the origin before the final shift
 # onto the bed. Cookie walls sit in the +X / +Y quadrant.
@@ -303,12 +310,208 @@ def _write_png(path: Path, image: np.ndarray) -> None:
     path.write_bytes(png)
 
 
+def boundary_edge_count(tris: list[tuple[int, int, int]]) -> int:
+    edges: Counter[tuple[int, int]] = Counter()
+    for a, b, c in tris:
+        for edge in ((a, b), (b, c), (c, a)):
+            edges[tuple(sorted(edge))] += 1
+    return sum(1 for count in edges.values() if count != 2)
+
+
+def welded_mesh(model: Manifold) -> tuple[list[tuple[float, float, float]], list[tuple[int, int, int]]]:
+    mesh = model.to_mesh()
+    raw_verts = np.asarray(mesh.vert_properties, dtype=np.float64)
+    raw_tris = np.asarray(mesh.tri_verts, dtype=np.int64)
+    index: dict[tuple[float, float, float], int] = {}
+    verts: list[tuple[float, float, float]] = []
+    tris: list[tuple[int, int, int]] = []
+    for tri in raw_tris:
+        ids = []
+        for vertex in raw_verts[tri]:
+            key = tuple(round(float(axis), 4) for axis in vertex)
+            vertex_id = index.get(key)
+            if vertex_id is None:
+                vertex_id = len(verts)
+                index[key] = vertex_id
+                verts.append(key)
+            ids.append(vertex_id)
+        if len(set(ids)) == 3:
+            tris.append((ids[0], ids[1], ids[2]))
+    if boundary_edge_count(tris) != 0:
+        raise SystemExit("corner support mesh is not closed")
+    return verts, tris
+
+
+def project_settings() -> dict:
+    """P2S, 0.4 mm nozzle, one spool of PLA Pure.
+
+    The process keys below are the ones that matter for this part, and each
+    is named in different_settings_to_system so Studio keeps them instead of
+    reverting to the 0.20 mm Standard preset.
+    """
+    filament = "Bambu PLA Pure @BBL P2S 0.4 nozzle"
+    process_overrides = ";".join(
+        [
+            "enable_support",
+            "sparse_infill_density",
+            "sparse_infill_pattern",
+            "wall_generator",
+            "wall_loops",
+        ]
+    )
+    return {
+        "name": "project_settings",
+        "printer_model": "Bambu Lab P2S",
+        "printer_variant": "0.4",
+        "nozzle_diameter": ["0.4"],
+        "printer_settings_id": "Bambu Lab P2S 0.4 nozzle",
+        "print_settings_id": "0.20mm Standard @BBL P2S",
+        "filament_settings_id": [filament],
+        "filament_colour": [GINGER],
+        "filament_type": ["PLA"],
+        "filament_diameter": ["1.75"],
+        "filament_self_index": ["1"],
+        "filament_extruder_variant": ["Direct Drive Standard"],
+        "extruder_variant_list": [
+            "Direct Drive Standard,Direct Drive High Flow,Direct Drive E3D High Flow"
+        ],
+        "inherits_group": [
+            "0.20mm Standard @BBL P2S",
+            filament,
+            "Bambu Lab P2S 0.4 nozzle",
+        ],
+        "different_settings_to_system": [process_overrides, "filament_colour", ""],
+        "curr_bed_type": "Textured PEI Plate",
+        "wall_loops": "5",
+        "sparse_infill_density": "20%",
+        "sparse_infill_pattern": "gyroid",
+        "wall_generator": "arachne",
+        "enable_support": "0",
+    }
+
+
+def write_3mf(path: Path, verts, tris) -> None:
+    """Four supports on one P2S plate. The mesh is shared by every copy."""
+    span = max(v[0] for v in verts)
+    depth = max(v[1] for v in verts)
+    gap = 12.0
+    origin = (BED - (span * 2 + gap)) / 2
+    positions = [
+        (origin, origin),
+        (origin + span + gap, origin),
+        (origin, origin + depth + gap),
+        (origin + span + gap, origin + depth + gap),
+    ]
+    if origin < 8 or origin + span * 2 + gap > BED - 8:
+        raise SystemExit("four supports do not fit the P2S bed")
+
+    v_lines = [f'<vertex x="{x:.4f}" y="{y:.4f}" z="{z:.4f}"/>' for x, y, z in verts]
+    t_lines = [f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in tris]
+    mesh_xml = (
+        "<mesh>"
+        f"<vertices>{''.join(v_lines)}</vertices>"
+        f"<triangles>{''.join(t_lines)}</triangles>"
+        "</mesh>"
+    )
+    name = "Corner support"
+    model = f'''<?xml version="1.0" encoding="UTF-8"?>
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+  <metadata name="Application">BambuStudio-01.10.02.75</metadata>
+  <metadata name="BambuStudio:3mfVersion">1</metadata>
+  <metadata name="Title">Gingerbread corner supports</metadata>
+  <resources>
+    <object id="1" name="{escape(name)}" type="model">{mesh_xml}</object>
+  </resources>
+  <build>
+    {''.join(
+        f'<item objectid="1" transform="1 0 0 0 1 0 0 0 1 {x:.4f} {y:.4f} 0.0000" printable="1"/>'
+        for x, y in positions
+    )}
+  </build>
+</model>
+'''
+    instances = "\n".join(
+        f'''    <model_instance>
+      <metadata key="object_id" value="1"/>
+      <metadata key="instance_id" value="{index}"/>
+      <metadata key="identify_id" value="{index + 1}"/>
+    </model_instance>'''
+        for index in range(len(positions))
+    )
+    assemble = "\n    ".join(
+        f'<assemble_item object_id="1" instance_id="{index}" '
+        f'transform="1 0 0 0 1 0 0 0 1 {x:.4f} {y:.4f} 0.0000" offset="0 0 0"/>'
+        for index, (x, y) in enumerate(positions)
+    )
+    model_settings = f'''<?xml version="1.0" encoding="UTF-8"?>
+<config>
+  <object id="1">
+    <metadata key="name" value="{escape(name)}"/>
+    <metadata key="extruder" value="1"/>
+    <part id="1" subtype="normal_part">
+      <metadata key="name" value="{escape(name)}"/>
+      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>
+      <mesh_stat face_count="{len(tris)}" edges_fixed="0" degenerate_facets="0" facets_removed="0" facets_reversed="0" backwards_edges="0"/>
+    </part>
+  </object>
+  <plate>
+    <metadata key="plater_id" value="1"/>
+    <metadata key="plater_name" value=""/>
+    <metadata key="locked" value="false"/>
+    <metadata key="bed_type" value="Textured PEI Plate"/>
+{instances}
+  </plate>
+  <assemble>
+    {assemble}
+  </assemble>
+</config>
+'''
+    content_types = '''<?xml version="1.0" encoding="UTF-8"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
+  <Default Extension="config" ContentType="text/xml"/>
+</Types>
+'''
+    rels = '''<?xml version="1.0" encoding="UTF-8"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>
+</Relationships>
+'''
+    settings = project_settings()
+    if settings["printer_model"] != "Bambu Lab P2S" or settings["nozzle_diameter"] != ["0.4"]:
+        raise SystemExit("project settings are not a single-nozzle P2S")
+    if len(settings["inherits_group"]) != 3 or len(settings["different_settings_to_system"]) != 3:
+        raise SystemExit("filament preset lists do not match one spool")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", content_types)
+        archive.writestr("_rels/.rels", rels)
+        archive.writestr("3D/3dmodel.model", model)
+        archive.writestr("Metadata/project_settings.config", json.dumps(settings, indent=2))
+        archive.writestr("Metadata/model_settings.config", model_settings)
+
+    with zipfile.ZipFile(path) as archive:
+        loaded = json.loads(archive.read("Metadata/project_settings.config"))
+        if loaded["wall_loops"] != "5" or loaded["wall_generator"] != "arachne":
+            raise SystemExit("3MF process overrides were not written")
+        if loaded["filament_settings_id"] != ["Bambu PLA Pure @BBL P2S 0.4 nozzle"]:
+            raise SystemExit("3MF filament preset was not written")
+        plate = archive.read("3D/3dmodel.model").decode("utf-8")
+        if plate.count('objectid="1"') != 4:
+            raise SystemExit("3MF does not place four supports")
+        if "BambuStudio-01.10.02.75" not in plate:
+            raise SystemExit("3MF is not marked as a Bambu Studio project")
+
+
 def main() -> None:
     model = build()
     check(model)
     write_stl(model, STL_PATH)
     render(model)
+    write_3mf(PROJECT_PATH, *welded_mesh(model))
     print(f"wrote {STL_PATH}")
+    print(f"wrote {PROJECT_PATH}")
 
 
 if __name__ == "__main__":
